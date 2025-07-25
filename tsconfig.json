@@ -2,14 +2,18 @@
     "include": ["src"],
     "exclude": ["**/*.test.*"],
     "compilerOptions": {
+        "allowImportingTsExtensions": true,
         "erasableSyntaxOnly": true,
         "module": "esnext",
         "moduleResolution": "bundler",
         "declaration": true,
         "declarationDir": "./dist/",
         "emitDeclarationOnly": true,
+        "jsxImportSource": "solid-js",
+        "jsx": "preserve",
         "noUnusedLocals": true,
         "noUnusedParameters": true,
+        "skipLibCheck": true,
         "strict": true,
         "target": "esnext"
     }
