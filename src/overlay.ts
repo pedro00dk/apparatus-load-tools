@@ -14,4 +14,6 @@ const configuration = {
     },
 }
 
-export const setOverlayConfiguration = () => {}
+export const setOverlayConfiguration = (overrides: Partial<typeof configuration>) => {
+    Object.assign(configuration, overrides)
+}
