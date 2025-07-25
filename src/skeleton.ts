@@ -107,7 +107,7 @@ const configuration = {
  *
  * @param overrides Configuration parts to override.
  */
-export const setConfiguration = (overrides: Partial<typeof configuration>) => {
+export const setSkeletonConfiguration = (overrides: Partial<typeof configuration>) => {
     const elements = Object.assign(configuration.elements, overrides.elements)
     Object.assign(configuration, overrides, { elements })
 }
