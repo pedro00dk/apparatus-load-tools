@@ -86,6 +86,8 @@ const configuration = {
         video: { sk: 'round' },
         svg: { sk: 'round' },
     } as { [_ in string]?: SkeletonOptions },
+    /** Default target element for the container. */
+    getTarget: () => document.body as HTMLElement | ShadowRoot,
     /** Render function for the container element. */
     createContainer: () => {
         const container = document.createElement('div')
@@ -147,11 +149,11 @@ const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(
  *
  * Return a cleanup function to disconnect observers and remove the skeleton container from {@linkcode target}.
  *
- * @param target Target to append the skeleton container.
  * @param elements Elements that are the root (inclusive) to find all candidates to skeleton creation.
+ * @param target Target to inject the skeleton container.
  * @param debug Enable decorations and options to help debugging skeletons.
  */
-export const inject = (target: Element | ShadowRoot, elements: HTMLElement[], debug: boolean) => () => {
+export const inject = (elements: HTMLElement[], target?: HTMLElement | ShadowRoot, debug?: boolean) => () => {
     const implicitNone = Object.entries(configuration.elements)
         .filter(([, options]) => options?.sk === 'none')
         .map(([tag]) => tag)
@@ -194,7 +196,7 @@ export const inject = (target: Element | ShadowRoot, elements: HTMLElement[], de
         })
     })
 
-    const container = target.appendChild(configuration.createContainer())
+    const container = (target ?? configuration.getTarget()).appendChild(configuration.createContainer())
     container.style.position = mode === 'anchor' ? '' : 'absolute'
     container.style.pointerEvents = debug ? 'none' : ''
     elements.forEach(root => (root.inert = !debug))

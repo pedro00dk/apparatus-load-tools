@@ -58,14 +58,14 @@ export const sk = () => useContext(SkeletonContext)
  */
 export const SuspenseSkeleton = (props: {
     //
-    target: Element | ShadowRoot
+    target?: HTMLElement | ShadowRoot
     debug?: boolean
     children?: JSX.Element
 }) => {
     const [suspended, setSuspended] = createSignal(true)
     const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
-    const cleanup = createMemo(() => inject(props.target, elements(), !!props.debug)())
+    const cleanup = createMemo(() => inject(elements(), props.target, props.debug)())
     createComputed(() => !suspended() && cleanup())
 
     return (
@@ -90,13 +90,13 @@ export const SuspenseSkeleton = (props: {
 export const ShowSkeleton = (props: {
     //
     when: boolean
-    target: Element | ShadowRoot
+    target: HTMLElement | ShadowRoot
     debug?: boolean
     children?: JSX.Element
 }) => {
     const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
-    const cleanup = createMemo(() => inject(props.target, elements(), !!props.debug)())
+    const cleanup = createMemo(() => inject(elements(), props.target, props.debug)())
     createComputed(() => props.when && cleanup())
 
     return (
