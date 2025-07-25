@@ -1,7 +1,7 @@
 {
     "name": "@_apparatus_/load-tools",
     "description": "Easily create loading skeletons and overlays that adapt to content at runtime.",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "type": "module",
     "license": "MIT",
     "repository": {
