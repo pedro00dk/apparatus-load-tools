@@ -89,18 +89,16 @@ const configuration = {
     /** Default target element for the container. */
     getTarget: () => document.body as HTMLElement | ShadowRoot,
     /** Render function for the container element. */
-    createContainer: () => {
-        const container = document.createElement('div')
-        const style = container.appendChild(document.createElement('style'))
-        style.textContent = '@keyframes load-skeleton-pulse { 50% { opacity: 0.5; } }'
-        return container as HTMLElement
-    },
+    createContainer: () => document.createElement('div') as HTMLElement,
     /** Render function for the skeleton element. */
     createSkeleton: () => {
-        const skeleton = document.createElement('div')
+        const skeleton = document.createElement('div') as HTMLElement
         skeleton.style.background = '#DCE2E5'
-        skeleton.style.animation = 'load-skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-        return skeleton as HTMLElement
+        skeleton.animate(
+            { opacity: [1, 0.5, 1] },
+            { duration: 2000, easing: 'cubic-bezier(0.4, 0, 0.6, 1)', iterations: Infinity },
+        )
+        return skeleton
     },
 }
 
@@ -153,7 +151,7 @@ const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(
  * @param target Target to inject the skeleton container.
  * @param debug Enable decorations and options to help debugging skeletons.
  */
-export const inject = (elements: HTMLElement[], target?: HTMLElement | ShadowRoot, debug?: boolean) => () => {
+export const injectSkeleton = (elements: HTMLElement[], target?: HTMLElement | ShadowRoot, debug?: boolean) => () => {
     const implicitNone = Object.entries(configuration.elements)
         .filter(([, options]) => options?.sk === 'none')
         .map(([tag]) => tag)

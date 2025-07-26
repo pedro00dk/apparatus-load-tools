@@ -10,7 +10,7 @@ import {
     useContext,
 } from 'solid-js'
 import { KebabCase } from 'type-fest'
-import { inject, type SkeletonOptions } from './skeleton.ts'
+import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
 
 declare module 'solid-js' {
     namespace JSX {
@@ -65,7 +65,7 @@ export const SuspenseSkeleton = (props: {
     const [suspended, setSuspended] = createSignal(true)
     const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
-    const cleanup = createMemo(() => inject(elements(), props.target, props.debug)())
+    const cleanup = createMemo(() => injectSkeleton(elements(), props.target, props.debug)())
     createComputed(() => !suspended() && cleanup())
 
     return (
@@ -96,7 +96,7 @@ export const ShowSkeleton = (props: {
 }) => {
     const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
-    const cleanup = createMemo(() => inject(elements(), props.target, props.debug)())
+    const cleanup = createMemo(() => injectSkeleton(elements(), props.target, props.debug)())
     createComputed(() => props.when && cleanup())
 
     return (
