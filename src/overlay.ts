@@ -24,8 +24,6 @@ export type OverlayOptions = {
 const configuration = {
     /** Default {@linkcode OverlayOptions} for all elements. */
     defaults: { ovIn: '200', ovOut: '200', ovZ: '1' } satisfies OverlayOptions,
-    /** Default target element for the overlay container. */
-    getTarget: () => document.body as HTMLElement | ShadowRoot,
     /** Render function for the overlay decoration element. */
     createDecoration: () => {
         const decoration = document.createElement('i')
@@ -56,33 +54,26 @@ export const setOverlayConfiguration = (overrides: Partial<typeof configuration>
 }
 
 /**
- * Inject the overlay container into {@linkcode target} of {@linkcode configuration.getTarget} and listen for elements
- * that want to display an overlay decoration.
+ * Listen for elements that want to display an overlays, and inject overlay decorations.
  *
  * In order to display an overlay decoration, the element must opt-in by setting the `[data-ov]` attribute.
  *
- * Overlay containers and decorations are generated using the {@linkcode configuration.createContainer} and
- * {@linkcode configuration.createDecoration}.
+ * Overlay containers and decorations are generated using {@linkcode configuration.createDecoration}.
  *
  * Elements side effects:
- * - `element.style.anchorName`: Set for anchor positioning
+ * - `element.style.position`: Set to `relative`.
+ * - `element.children`: Decoration appended.
  *
- * Container and decorations side effects:
- * - `container.style`: Several positioning properties.
+ * Decorations side effects:
  * - `decoration.style`: Several positioning properties.
  *
  * A cleanup function is returned to unsubscribe listeners and remove the overlay container from {@linkcode target}.
  *
  * @param root Root element to listen for overlay candidates.
- * @param target Element to append the overlay container.
  * @param options.subtree Listen for overlay candidates in the entire subtree.
  */
-export const injectOverlay = (
-    root: HTMLElement,
-    target?: HTMLElement | ShadowRoot,
-    options?: { subtree?: boolean },
-) => {
-    target ??= configuration.getTarget()
+export const injectOverlay = (root: HTMLElement, options?: { subtree?: boolean }) => {
+    const { subtree = false } = options ?? {}
     const decorations = new WeakMap<HTMLElement, HTMLElement>()
 
     const inject = (element: HTMLElement, animate: boolean) => {
@@ -91,26 +82,26 @@ export const injectOverlay = (
         decoration.slot = options.ovSlot ?? ''
         decoration.style.position = 'absolute'
         decoration.style.inset = '0'
-        element.style.position = 'relative'
         element.append(decoration)
         resizeObserver.observe(element)
         decorations.set(element, decoration)
         decoration.animate({ opacity: [0, 1] }, { duration: +options.ovIn * +animate, easing: 'ease-out' })
     }
 
-    const eject = async (element: HTMLElement, animate: boolean) => {
+    const eject = (element: HTMLElement, animate: boolean) => {
         const decoration = decorations.get(element)
-        if (!decoration || element.dataset.ov === 'true') return
         const options = { ...configuration.defaults, ...element.dataset }
         resizeObserver.unobserve(element)
         decorations.delete(element)
-        await decoration.animate({ opacity: [1, 0] }, { duration: +options.ovOut * +animate, easing: 'ease-in' })
-            .finished
-        decoration.remove()
+        decoration
+            ?.animate({ opacity: [1, 0] }, { duration: +options.ovOut * +animate, easing: 'ease-in' })
+            .finished.then(() => decoration?.remove())
     }
 
     const mutationObserver = new MutationObserver(records => {
-        records.forEach(({ target }) => eject(target as HTMLElement, true))
+        records
+            .filter(({ target }) => (target as HTMLElement).dataset.ov !== 'true')
+            .forEach(({ target }) => eject(target as HTMLElement, true))
         records
             .filter(({ target }) => (target as HTMLElement).dataset.ov === 'true')
             .forEach(({ target }) => inject(target as HTMLElement, true))
@@ -125,7 +116,7 @@ export const injectOverlay = (
         ),
     )
 
-    mutationObserver.observe(root, { subtree: options?.subtree, attributes: true, attributeFilter: ['data-ov'] })
+    mutationObserver.observe(root, { subtree, attributes: true, attributeFilter: ['data-ov'] })
 
     return () => (mutationObserver.disconnect(), resizeObserver.disconnect())
 }
