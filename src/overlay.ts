@@ -1,3 +1,5 @@
+import { mode } from './util.ts'
+
 declare global {
     interface DOMStringMap extends OverlayOptions {}
 }
@@ -13,14 +15,6 @@ export type OverlayOptions = {
     /** Fade out duration. */
     ovOut?: `${number}`
 }
-
-/**
- * Checks if browser supports css anchors. Or if fallback float mode will be used.
- *
- * The fallback mode uses inset positioning based on the parent container. It works as expected but can misbehave when
- * the page is zoomed in or out, and content shifts.
- */
-const mode = CSS.supports('anchor-name: --anchor') ? 'anchor' : 'float'
 
 /**
  * Module configuration, includes default {@linkcode OverlayOptions}, and render functions.

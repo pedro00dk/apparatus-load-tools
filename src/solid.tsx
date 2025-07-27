@@ -9,26 +9,19 @@ import {
     Suspense,
     useContext,
 } from 'solid-js'
-import { KebabCase } from 'type-fest'
+
+import { type OverlayOptions } from './overlay.ts'
 import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
+import { OptionsToAttributes } from './util.ts'
 
 declare module 'solid-js' {
     namespace JSX {
-        interface HTMLAttributes<T extends EventTarget> extends SkeletonAttributes {
+        interface HTMLAttributes<T extends EventTarget>
+            extends OptionsToAttributes<OverlayOptions>,
+                OptionsToAttributes<SkeletonOptions> {
             _?: T
         }
     }
-}
-
-/**
- * Skeleton data attribute options.
- *
- * `attr:` prefix is enforced to avoid issues with custom elements.
- */
-type SkeletonAttributes = {
-    [K in keyof SkeletonOptions as `attr:data-${KebabCase<K>}`]?: SkeletonOptions[K]
-} & {
-    [K in keyof SkeletonOptions as `data-${KebabCase<K>}`]?: never
 }
 
 /**
