@@ -1,105 +1,80 @@
-declare global {
-  interface DOMStringMap extends SkeletonOptions { }
+import { CssLength, mode } from './util'
 
-  interface CSSStyleDeclaration {
-    anchorName?: string
-    positionAnchor?: string
-    positionArea?: string
-  }
+declare global {
+    interface DOMStringMap extends SkeletonOptions {}
 }
 
-type CssAbsoluteUnits = 'px' | 'cm' | 'mm' | 'Q' | 'in' | 'pc' | 'pt'
-type CssFontUnits = 'em' | 'rem' | 'ex' | 'ch' | 'cap' | 'ic' | 'lh' | 'rlh'
-type CssViewportUnits = `${'' | 's' | 'l' | 'd'}v${'i' | 'b' | 'w' | 'h' | 'min' | 'max'}`
-type CssContainerUnits = `cq${'i' | 'b' | 'w' | 'h' | 'min' | 'max'}`
-type CssLength = `${number}${CssAbsoluteUnits | CssFontUnits | CssViewportUnits | CssContainerUnits}`
-
 /**
- * Skeleton decoration `dataset` options that can be injected through element data attributes.
+ * Skeleton `dataset` options that can be injected through element data attributes.
  */
 export type SkeletonOptions = {
-  /** Decoration type. */
-  sk?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
-  /** Roundness of `round` decorations. Defaults to `m`. */
-  skR?: 'xs' | 's' | 'm' | 'l' | 'xl'
-  /** Match precision of `text` decorations. Defaults to `last`. (For elements containing text nodes) */
-  skT?: 'trim' | 'loose'
-  /** Transform origin to scale operations (css property: transform-origin). */
-  skO?: string
-  /** Scale the decoration in the X axis (ratio). */
-  skSx?: `${number}`
-  /** Scale the decoration in the Y axis (ratio). */
-  skSy?: `${number}`
-  /** Translate the decoration in the X axis (css unit). */
-  skTx?: CssLength
-  /** Translate the decoration in the Y axis (css unit). */
-  skTy?: CssLength
-  /** Override decoration width (css unit). */
-  skW?: CssLength
-  /** Override decoration height (css unit). */
-  skH?: CssLength
+    /** Skeleton decoration type. */
+    sk?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
+    /** Roundness of `round` decorations. Defaults to `m`. */
+    skR?: 'xs' | 's' | 'm' | 'l' | 'xl'
+    /** Match precision of `text` decorations. Defaults to `last`. (For elements containing text nodes) */
+    skT?: 'trim' | 'loose'
+    /** Transform origin to scale operations (css property: transform-origin). */
+    skO?: string
+    /** Scale the decoration in the X axis (ratio). */
+    skSx?: `${number}`
+    /** Scale the decoration in the Y axis (ratio). */
+    skSy?: `${number}`
+    /** Translate the decoration in the X axis (css unit). */
+    skTx?: CssLength
+    /** Translate the decoration in the Y axis (css unit). */
+    skTy?: CssLength
+    /** Override decoration width (css unit). */
+    skW?: CssLength
+    /** Override decoration height (css unit). */
+    skH?: CssLength
 }
-
-/**
- * Checks if browser supports css anchors. Or if fallback float mode will be used.
- *
- * The fallback mode uses inset positioning based on the parent container. It works as expected but can misbehave when
- * the page is zoomed in or out, and content shifts.
- */
-const mode = CSS.supports('anchor-name: --anchor') ? 'anchor' : 'float'
 
 /**
  * Border radius values for different skeleton decoration modes and radius.
  */
 const radii: { [_ in NonNullable<SkeletonOptions['sk' | 'skR']>]: string } = {
-  none: '0px',
-  hide: '0px',
-  text: '0.4lh',
-  rect: '0px',
-  pill: '1000px',
-  round: '8px',
-  xs: '2px',
-  s: '4px',
-  m: '8px',
-  l: '12px',
-  xl: '16px',
+    none: '0px',
+    hide: '0px',
+    text: '0.4lh',
+    rect: '0px',
+    pill: '1000px',
+    round: '8px',
+    xs: '2px',
+    s: '4px',
+    m: '8px',
+    l: '12px',
+    xl: '16px',
 }
 
 /**
  * Module configuration, includes default {@linkcode SkeletonOptions}, and render functions for container and skeletons.
  */
 const configuration = {
-  /** Default {@linkcode SkeletonOptions} for all elements. */
-  defaults: {
-    skR: 'm',
-    skT: 'trim',
-    skO: 'center',
-    skSx: '1',
-    skSy: '1',
-    skTx: '0px',
-    skTy: '0px',
-  } as SkeletonOptions,
-  /** Default {@linkcode SkeletonOptions} for specific elements. */
-  elements: {
-    img: { sk: 'round' },
-    picture: { sk: 'round' },
-    video: { sk: 'round' },
-    svg: { sk: 'round' },
-  } as { [_ in string]?: SkeletonOptions },
-  /** Default target element for the skeleton container. */
-  getTarget: () => document.body as HTMLElement | ShadowRoot,
-  /** Render function for the skeleton container element. */
-  createContainer: () => document.createElement('div') as HTMLElement,
-  /** Render function for the skeleton decoration element. */
-  createDecoration: () => {
-    const decoration = document.createElement('div') as HTMLElement
-    decoration.style.background = '#DCE2E5'
-    decoration.animate(
-      { opacity: [1, 0.5, 1] },
-      { duration: 2000, easing: 'cubic-bezier(0.4, 0, 0.6, 1)', iterations: Infinity },
-    )
-    return decoration
-  },
+    /** Default {@linkcode SkeletonOptions} for all elements. */
+    defaults: { skR: 'm', skT: 'trim', skO: 'center', skSx: '1', skSy: '1', skTx: '0', skTy: '0' } as SkeletonOptions,
+    /** Default {@linkcode SkeletonOptions} for specific elements. */
+    elements: {
+        img: { sk: 'round' },
+        picture: { sk: 'round' },
+        video: { sk: 'round' },
+        svg: { sk: 'round' },
+    } as { [_ in string]?: SkeletonOptions },
+    /** Default target element for the skeleton container. */
+    getTarget: () => document.body as HTMLElement | ShadowRoot,
+    /** Render function for the skeleton container element. */
+    createContainer: () => {
+        const container = document.createElement('div') as HTMLElement
+        container.style.zIndex = '1'
+        return container
+    },
+    /** Render function for the skeleton decoration element. */
+    createDecoration: () => {
+        const decoration = document.createElement('div') as HTMLElement
+        decoration.style.background = '#DCE2E5'
+        decoration.animate({ opacity: [1, 0.5, 1] }, { duration: 2000, easing: 'ease-in-out', iterations: Infinity })
+        return decoration
+    },
 }
 
 /**
@@ -108,8 +83,9 @@ const configuration = {
  * @param overrides Configuration parts to override.
  */
 export const setSkeletonConfiguration = (overrides: Partial<typeof configuration>) => {
-  const elements = Object.assign(configuration.elements, overrides.elements)
-  Object.assign(configuration, overrides, { elements })
+    const defaults = { ...configuration.defaults, ...overrides.defaults }
+    const elements = { ...configuration.elements, ...overrides.elements }
+    Object.assign(configuration, overrides, { defaults, elements })
 }
 
 /**
@@ -127,10 +103,10 @@ export const setSkeletonConfiguration = (overrides: Partial<typeof configuration
  * @param implicitType Element tags with implicit `data-sk` not `"none"`.
  */
 const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(:is(${[
-  '[data-sk="none"]',
-  '[data-sk]:not([data-sk="none"]) :not([data-sk])',
-  ...implicitType.map(tag => `${tag}:not([data-sk]) :not([data-sk])`),
-  ...implicitNone.map(tag => `${tag}:not([data-sk])`),
+    '[data-sk="none"]',
+    '[data-sk]:not([data-sk="none"]) :not([data-sk])',
+    ...implicitType.map(tag => `${tag}:not([data-sk]) :not([data-sk])`),
+    ...implicitNone.map(tag => `${tag}:not([data-sk])`),
 ].join(',\n')}
 ))`
 
@@ -152,55 +128,58 @@ const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(
  * @param debug Enable decorations and options to help debugging skeletons.
  */
 export const injectSkeleton = (elements: HTMLElement[], target?: HTMLElement | ShadowRoot, debug?: boolean) => () => {
-  const implicitNone = Object.entries(configuration.elements)
-    .filter(([, options]) => options?.sk === 'none')
-    .map(([tag]) => tag)
-  const implicitType = Object.entries(configuration.elements)
-    .filter(([, options]) => options?.sk && options.sk !== 'none')
-    .map(([tag]) => tag)
-  const selector = buildSelector(implicitNone, implicitType)
+    target ??= configuration.getTarget()
+    const container = target.appendChild(configuration.createContainer())
+    container.dataset.about = 'skeleton-container'
+    container.style.position = mode === 'anchor' ? 'static' : 'absolute'
+    container.style.pointerEvents = debug ? 'none' : ''
 
-  const observer = new ResizeObserver(() => {
-    const candidates = [
-      ...elements.filter(element => element.matches(selector)),
-      ...elements.flatMap(element => [...element.querySelectorAll<HTMLElement>(selector)]),
-    ]
+    const implicitNone = Object.entries(configuration.elements)
+        .filter(([, options]) => options?.sk === 'none')
+        .map(([tag]) => tag)
+    const implicitType = Object.entries(configuration.elements)
+        .filter(([, options]) => options?.sk && options.sk !== 'none')
+        .map(([tag]) => tag)
+    const selector = buildSelector(implicitNone, implicitType)
 
-    const containerRect = container.getBoundingClientRect()
-    const decorationData = candidates.map((element, i) => {
-      const anchor = `--skeleton-decoration-${i}`
-      const dataset = element.dataset as SkeletonOptions
-      const options = { ...configuration.defaults, ...configuration.elements[element.localName], ...dataset }
-      const elementRect = element.getBoundingClientRect()
-      const decorations = computeDecorations(element, elementRect, options)?.map(decorationRect =>
-        createDecoration(options, anchor, decorationRect, elementRect, containerRect),
-      )
-      return { element, anchor, options, elementRect, decorations }
+    const observer = new ResizeObserver(() => {
+        const candidates = [
+            ...elements.filter(element => element.matches(selector)),
+            ...elements.flatMap(element => [...element.querySelectorAll<HTMLElement>(selector)]),
+        ]
+
+        const containerRect = container.getBoundingClientRect()
+        const decorationData = candidates.map((element, i) => {
+            const anchor = `--skeleton-decoration-${i}`
+            const dataset = element.dataset as SkeletonOptions
+            const options = { ...configuration.defaults, ...configuration.elements[element.localName], ...dataset }
+            const elementRect = element.getBoundingClientRect()
+            const decorations = computeDecorations(element, elementRect, options)?.map(decorationRect =>
+                createDecoration(options, anchor, decorationRect, elementRect, containerRect),
+            )
+            return { element, anchor, options, elementRect, decorations }
+        })
+
+        container.replaceChildren()
+        decorationData.forEach(({ element, anchor, options, decorations }) => {
+            if (!decorations?.length) return
+            if (!debug) element.style.opacity = '0'
+            if (options.sk === 'hide') return
+            if (mode === 'anchor') element.style.anchorName = anchor
+            observer.observe(element)
+            container.append(...decorations)
+            if (!debug) return
+            decorations.forEach(decoration => {
+                decoration.textContent = `${element.localName} ${element.id}`
+                decoration.style.outline = `1px ${options.sk === 'text' ? 'dashed' : 'solid'} red`
+            })
+        })
     })
 
-    container.replaceChildren()
-    decorationData.forEach(({ element, anchor, options, decorations }) => {
-      if (!decorations?.length) return
-      if (!debug) element.style.opacity = '0'
-      if (options.sk === 'hide') return
-      observer.observe(element)
-      container.append(...decorations)
-      if (mode === 'anchor') element.style.anchorName = anchor
-      if (!debug) return
-      decorations.forEach(decoration => {
-        decoration.textContent = `${element.localName} ${element.id}`
-        decoration.style.outline = `1px ${options.sk === 'text' ? 'dashed' : 'solid'} red`
-      })
-    })
-  })
+    elements.forEach(element => (element.inert = !debug))
+    elements.forEach(element => observer.observe(element))
 
-  target ??= configuration.getTarget()
-  const container = target.appendChild(configuration.createContainer())
-  container.style.position = mode === 'anchor' ? '' : 'absolute'
-  container.style.pointerEvents = debug ? 'none' : ''
-  elements.forEach(element => (element.inert = !debug))
-  elements.forEach(element => observer.observe(element))
-  return () => observer.disconnect()
+    return () => observer.disconnect()
 }
 
 /**
@@ -214,40 +193,40 @@ export const injectSkeleton = (elements: HTMLElement[], target?: HTMLElement | S
  * @param options {@linkcode element}'s resolved options.
  */
 const computeDecorations = (element: HTMLElement, rect: DOMRect, options: SkeletonOptions) => {
-  if (!rect.height || !rect.width) return
-  const { sk, skT } = options
-  const customElement = element.localName.includes('-')
-  const probablyText = element.childNodes.length > element.childElementCount
-  if (!sk && !customElement && !probablyText) return
-  if ((sk && sk !== 'text') || (sk === 'text' && !probablyText) || customElement)
-    return [new DOMRect(0, 0, rect.width, rect.height)]
-  return element.childNodes
-    .values()
-    .filter(node => node.nodeType === Node.TEXT_NODE && node.textContent?.length)
-    .flatMap(node => {
-      const range = document.createRange()
-      range.setStart(node, 0)
-      range.setEnd(node, 1)
-      const startRect = range.getBoundingClientRect()
-      range.setStart(node, node.textContent!.length - 1)
-      range.setEnd(node, node.textContent!.length)
-      const endRect = range.getBoundingClientRect()
-      const lineHeight = parseFloat(getComputedStyle(element).lineHeight)
-      const top = startRect.top - rect.top - (lineHeight - startRect.height) / 2
-      const left = startRect.left - rect.left
-      const right = rect.right - endRect.right
-      const lines = Math.round((endRect.bottom - startRect.top) / lineHeight)
-      return [...Array(lines)].map(
-        (_, i) =>
-          new DOMRect(
-            0.1 + +(i === 0) * left,
-            top + i * lineHeight,
-            rect.width - +(i === 0 && skT === 'trim') * left - +(i === lines - 1 && skT === 'trim') * right,
-            lineHeight,
-          ),
-      )
-    })
-    .toArray()
+    if (!rect.height || !rect.width) return
+    const { sk, skT } = options
+    const customElement = element.localName.includes('-')
+    const probablyText = element.childNodes.length > element.childElementCount
+    if (!sk && !customElement && !probablyText) return
+    if ((sk && sk !== 'text') || (sk === 'text' && !probablyText) || customElement)
+        return [new DOMRect(0, 0, rect.width, rect.height)]
+    return element.childNodes
+        .values()
+        .filter(node => node.nodeType === Node.TEXT_NODE && node.textContent?.length)
+        .flatMap(node => {
+            const range = document.createRange()
+            range.setStart(node, 0)
+            range.setEnd(node, 1)
+            const startRect = range.getBoundingClientRect()
+            range.setStart(node, node.textContent!.length - 1)
+            range.setEnd(node, node.textContent!.length)
+            const endRect = range.getBoundingClientRect()
+            const lineHeight = parseFloat(getComputedStyle(element).lineHeight)
+            const top = startRect.top - rect.top - (lineHeight - startRect.height) / 2
+            const left = startRect.left - rect.left
+            const right = rect.right - endRect.right
+            const lines = Math.round((endRect.bottom - startRect.top) / lineHeight)
+            return [...Array(lines)].map(
+                (_, i) =>
+                    new DOMRect(
+                        0.1 + +(i === 0) * left,
+                        top + i * lineHeight,
+                        rect.width - +(i === 0 && skT === 'trim') * left - +(i === lines - 1 && skT === 'trim') * right,
+                        lineHeight,
+                    ),
+            )
+        })
+        .toArray()
 }
 
 /**
@@ -260,29 +239,29 @@ const computeDecorations = (element: HTMLElement, rect: DOMRect, options: Skelet
  * @param containerRect Container rect required if {@linkcode mode} is `"float"`.
  */
 const createDecoration = (
-  options: SkeletonOptions,
-  anchor: string,
-  decorationRect: DOMRect,
-  elementRect: DOMRect,
-  containerRect: DOMRect,
+    options: SkeletonOptions,
+    anchor: string,
+    decorationRect: DOMRect,
+    elementRect: DOMRect,
+    containerRect: DOMRect,
 ) => {
-  const { sk = decorationRect.left > 0 ? 'text' : 'round' } = options
-  const { skR, skO, skSx, skTx, skTy } = options
-  const skSy = options.skSy !== '1' ? options.skSy : sk === 'text' ? '0.5' : '1'
-  const { skW = `${decorationRect.width}px`, skH = `${decorationRect.height}px` } = options
-  const float = +(mode === 'float')
-  const decoration = configuration.createDecoration()
-  decoration.style.position = 'absolute'
-  decoration.style.positionAnchor = anchor
-  decoration.style.positionArea = 'center center'
-  decoration.style.alignSelf = 'start'
-  decoration.style.justifySelf = 'start'
-  decoration.style.borderRadius = radii[sk === 'round' ? skR! : sk]
-  decoration.style.width = skW
-  decoration.style.height = skH
-  decoration.style.scale = `${skSx} ${skSy}`
-  decoration.style.transformOrigin = skO!
-  decoration.style.left = `calc(${decorationRect.x + float * (elementRect.x - containerRect.x)}px + ${skTx})`
-  decoration.style.top = `calc(${decorationRect.y + float * (elementRect.y - containerRect.y)}px + ${skTy})`
-  return decoration
+    const { sk = decorationRect.left > 0 ? 'text' : 'round' } = options
+    const { skR, skO, skSx, skTx, skTy } = options
+    const skSy = options.skSy !== '1' ? options.skSy : sk === 'text' ? '0.5' : '1'
+    const { skW = `${decorationRect.width}px`, skH = `${decorationRect.height}px` } = options
+    const float = +(mode === 'float')
+    const decoration = configuration.createDecoration()
+    decoration.style.position = 'absolute'
+    decoration.style.positionAnchor = anchor
+    decoration.style.positionArea = 'center center'
+    decoration.style.alignSelf = 'start'
+    decoration.style.justifySelf = 'start'
+    decoration.style.borderRadius = radii[sk === 'round' ? skR! : sk]
+    decoration.style.width = skW
+    decoration.style.height = skH
+    decoration.style.scale = `${skSx} ${skSy}`
+    decoration.style.transformOrigin = skO!
+    decoration.style.left = `calc(${decorationRect.x + float * (elementRect.x - containerRect.x)}px + ${skTx})`
+    decoration.style.top = `calc(${decorationRect.y + float * (elementRect.y - containerRect.y)}px + ${skTy})`
+    return decoration
 }
