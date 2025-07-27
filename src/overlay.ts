@@ -14,6 +14,8 @@ export type OverlayOptions = {
     ovIn?: `${number}`
     /** Fade out duration. */
     ovOut?: `${number}`
+    /** Set overlay decoration slot. */
+    ovSlot?: string
 }
 
 /**
@@ -86,6 +88,7 @@ export const injectOverlay = (
     const inject = (element: HTMLElement, animate: boolean) => {
         const options = { ...configuration.defaults, ...element.dataset }
         const decoration = configuration.createDecoration()
+        decoration.slot = options.ovSlot ?? ''
         decoration.style.position = 'absolute'
         decoration.style.inset = '0'
         element.style.position = 'relative'
