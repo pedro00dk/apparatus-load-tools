@@ -6,11 +6,12 @@ import {
     createSignal,
     JSX,
     Show,
+    splitProps,
     Suspense,
     useContext,
 } from 'solid-js'
 
-import { type OverlayOptions } from './overlay.ts'
+import { injectOverlay, type OverlayOptions } from './overlay.ts'
 import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
 import { OptionsToAttributes } from './util.ts'
 
@@ -22,6 +23,36 @@ declare module 'solid-js' {
             _?: T
         }
     }
+}
+
+/**
+ * SolidJS wrapper for {@linkcode injectOverlay}.
+ *
+ * The wrapper also make children inert if the overlay is enabled.
+ *
+ * @param props {@linkcode OverlayOptions} and children, should usually be a single child.
+ */
+export const Overlay = (props: OverlayOptions & { children?: JSX.Element }) => {
+    const [, overlayProps] = splitProps(props, ['children'])
+    const resolved = children(() => props.children)
+    const childrenArray = createMemo(() => resolved.toArray())
+    const record = new Map<HTMLElement, () => void>()
+
+    createComputed(() => {
+        const elements = childrenArray().filter(child => child instanceof HTMLElement)
+        const entered = elements.filter(element => !record.has(element))
+        const exited = [...record.keys()].filter(element => !elements.includes(element))
+        entered.forEach(element => record.set(element, injectOverlay(element)))
+        exited.forEach(element => (record.get(element)!(), record.delete(element)))
+    })
+
+    createComputed(() => {
+        const elements = childrenArray().filter(child => child instanceof HTMLElement)
+        elements.forEach(element => Object.assign(element.dataset, overlayProps))
+        elements.forEach(element => (element.inert = element.dataset.ov === 'true'))
+    })
+
+    return <>{childrenArray()}</>
 }
 
 /**
