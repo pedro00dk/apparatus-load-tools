@@ -1,20 +1,23 @@
 declare global {
     interface DOMStringMap extends OverlayOptions {}
+    interface HTMLElement {
+        _overlay?: HTMLElement
+    }
 }
 
 /**
  * Overlay `dataset` options that can be injected through element data attributes.
  */
 export type OverlayOptions = {
-    /** Display overlay decoration. */
+    /** Display overlay. */
     ov?: `${boolean}`
-    /** Overlay decoration z-index. */
+    /** Overlay z-index. */
     ovZ?: `${number}`
     /** Fade in duration. */
     ovIn?: `${number}`
     /** Fade out duration. */
     ovOut?: `${number}`
-    /** Set overlay decoration slot. */
+    /** Set overlay slot. */
     ovSlot?: string
 }
 
@@ -24,8 +27,8 @@ export type OverlayOptions = {
 const configuration = {
     /** Default {@linkcode OverlayOptions} for all elements. */
     defaults: { ovIn: '200', ovOut: '200', ovZ: '1' } satisfies OverlayOptions,
-    /** Render function for the overlay decoration element. */
-    createDecoration: () => {
+    /** Render function for the overlay element. */
+    create: () => {
         const decoration = document.createElement('i')
         decoration.style.position = 'absolute'
         decoration.style.display = 'grid'
@@ -54,69 +57,68 @@ export const setOverlayConfiguration = (overrides: Partial<typeof configuration>
 }
 
 /**
- * Listen for elements that want to display an overlays, and inject overlay decorations.
+ * Listen for {@linkcode element}'s `[data-ov]` and inject overlay.
  *
- * In order to display an overlay decoration, the element must opt-in by setting the `[data-ov]` attribute.
- *
- * Overlay containers and decorations are generated using {@linkcode configuration.createDecoration}.
+ * The overlay is generated using {@linkcode configuration.create}.
  *
  * Elements side effects:
  * - `element.style.position`: Set to `relative`.
  * - `element.children`: Decoration appended.
  *
  * Decorations side effects:
+ * - `decoration.slot`: If required using `dataset` options.
  * - `decoration.style`: Several positioning properties.
  *
- * A cleanup function is returned to unsubscribe listeners and remove the overlay container from {@linkcode target}.
+ * A cleanup function is returned to unsubscribe listeners and remove the overlay.
  *
- * @param root Root element to listen for overlay candidates.
- * @param options.subtree Listen for overlay candidates in the entire subtree.
+ * @param element Root element to listen for overlay candidates.
  */
-export const injectOverlay = (root: HTMLElement, options?: { subtree?: boolean }) => {
-    const { subtree = false } = options ?? {}
-    const decorations = new WeakMap<HTMLElement, HTMLElement>()
-
-    const inject = (element: HTMLElement, animate: boolean) => {
+export const injectOverlay = (element: HTMLElement) => {
+    const inject = (animate: boolean) => {
         const options = { ...configuration.defaults, ...element.dataset }
-        const decoration = configuration.createDecoration()
+        const decoration = configuration.create()
         decoration.slot = options.ovSlot ?? ''
         decoration.style.position = 'absolute'
         decoration.style.inset = '0'
+        decoration.style.zIndex = options.ovZ
+        decoration.slot = options.ovSlot ?? ''
+        element.style.position = 'relative'
+        element._overlay = decoration
         element.append(decoration)
         resizeObserver.observe(element)
-        decorations.set(element, decoration)
-        decoration.animate({ opacity: [0, 1] }, { duration: +options.ovIn * +animate, easing: 'ease-out' })
+        const duration = +options.ovIn * +animate
+        requestAnimationFrame(() => decoration.animate({ opacity: [0, 1] }, { duration, easing: 'ease-out' }))
     }
 
-    const eject = (element: HTMLElement, animate: boolean) => {
-        const decoration = decorations.get(element)
+    const eject = (animate: boolean) => {
         const options = { ...configuration.defaults, ...element.dataset }
+        const decoration = element._overlay
+        element._overlay = undefined
         resizeObserver.unobserve(element)
-        decorations.delete(element)
-        decoration
-            ?.animate({ opacity: [1, 0] }, { duration: +options.ovOut * +animate, easing: 'ease-in' })
-            .finished.then(() => decoration?.remove())
+        const duration = +options.ovOut * +animate
+        requestAnimationFrame(() =>
+            decoration
+                ?.animate({ opacity: [1, 0] }, { duration, easing: 'ease-in' })
+                .finished.then(() => decoration?.remove()),
+        )
     }
 
-    const mutationObserver = new MutationObserver(records => {
-        records
-            .filter(({ target }) => (target as HTMLElement).dataset.ov !== 'true')
-            .forEach(({ target }) => eject(target as HTMLElement, true))
-        records
-            .filter(({ target }) => (target as HTMLElement).dataset.ov === 'true')
-            .forEach(({ target }) => inject(target as HTMLElement, true))
+    const mutationObserver = new MutationObserver(() => {
+        const options = { ...configuration.defaults, ...element.dataset }
+        if (options.ov === 'true') inject(true)
+        else eject(true)
     })
 
-    const resizeObserver = new ResizeObserver(entries =>
-        entries.forEach(
-            entry =>
-                entry.borderBoxSize[0].blockSize === 0 &&
-                entry.borderBoxSize[0].inlineSize === 0 &&
-                eject(entry.target as HTMLElement, false),
-        ),
+    const resizeObserver = new ResizeObserver(
+        ([{ borderBoxSize: size }]) => size[0].blockSize === 0 && size[0].inlineSize === 0 && eject(false),
     )
 
-    mutationObserver.observe(root, { subtree, attributes: true, attributeFilter: ['data-ov'] })
+    mutationObserver.observe(element, { attributes: true, attributeFilter: ['data-ov'] })
+    if (element.dataset.ov === 'true') inject(true)
 
-    return () => (mutationObserver.disconnect(), resizeObserver.disconnect())
+    return () => {
+        mutationObserver.disconnect()
+        resizeObserver.disconnect()
+        element._overlay?.remove()
+    }
 }
