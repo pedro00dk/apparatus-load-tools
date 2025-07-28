@@ -10,14 +10,14 @@ declare global {
 export type SkeletonOptions = {
     /** Display skeletons. */
     sk?: `${boolean}`
-    /** Skeleton type. */
-    skType?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
+    /** Skeleton mode. */
+    skM?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
     /** Roundness of `round` skeletons. Defaults to `m`. */
-    skRadius?: 'xs' | 's' | 'm' | 'l' | 'xl'
+    skR?: 'xs' | 's' | 'm' | 'l' | 'xl'
     /** Match precision of `text` skeletons. Defaults to `last`. (Only for elements containing text nodes) */
-    skText?: 'trim' | 'loose'
+    skT?: 'trim' | 'loose'
     /** Transform origin to scale operations (css property: transform-origin). */
-    skOrigin?: string
+    skO?: string
     /** Scale in the X axis (ratio). */
     skSx?: `${number}`
     /** Scale in the Y axis (ratio). */
@@ -37,7 +37,7 @@ export type SkeletonOptions = {
 /**
  * Border radius values for different skeleton decoration modes and radius.
  */
-const radii: { [_ in NonNullable<SkeletonOptions['skType' | 'skRadius']>]: string } = {
+const radii: { [_ in NonNullable<SkeletonOptions['skM' | 'skR']>]: string } = {
     none: '0px',
     hide: '0px',
     text: '0.4lh',
@@ -57,9 +57,9 @@ const radii: { [_ in NonNullable<SkeletonOptions['skType' | 'skRadius']>]: strin
 const configuration = {
     /** Default {@linkcode SkeletonOptions}. */
     defaults: {
-        skRadius: 'm',
-        skText: 'trim',
-        skOrigin: 'center',
+        skR: 'm',
+        skT: 'trim',
+        skO: 'center',
         skSx: '1',
         skSy: '1',
         skTx: '0px',
@@ -67,10 +67,10 @@ const configuration = {
     } as SkeletonOptions,
     /** Default {@linkcode SkeletonOptions} for specific elements. */
     elements: {
-        img: { skType: 'round' },
-        picture: { skType: 'round' },
-        video: { skType: 'round' },
-        svg: { skType: 'round' },
+        img: { skM: 'round' },
+        picture: { skM: 'round' },
+        video: { skM: 'round' },
+        svg: { skM: 'round' },
     } as { [_ in string]?: SkeletonOptions },
     /** Skeleton factory. */
     factory: () => {
@@ -118,7 +118,7 @@ const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(
  * Compute skeleton decorations for a given {@linkcode element}.
  *
  * At this point, the computation does not take all {@linkcode options} into consideration, except for
- * {@linkcode SkeletonOptions.skType} and {@linkcode SkeletonOptions.skText}.
+ * {@linkcode SkeletonOptions.skM} and {@linkcode SkeletonOptions.skT}.
  *
  * @param element Element to compute skeleton decorations.
  * @param rect {@linkcode element}'s rect.
@@ -126,7 +126,7 @@ const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(
  */
 const computeDecorations = (element: HTMLElement, rect: DOMRect, options: SkeletonOptions) => {
     if (!rect.height || !rect.width) return
-    const { skType: sk, skText: skT } = options
+    const { skM: sk, skT } = options
     const customElement = element.localName.includes('-')
     const probablyText = element.childNodes.length > element.childElementCount
     if (!sk && !customElement && !probablyText) return
@@ -177,12 +177,12 @@ const createSkeleton = (
     containerRect: DOMRect,
     debug: boolean,
 ) => {
-    const { skType = skeletonRect.left > 0 ? 'text' : 'round' } = options
-    const { skRadius, skOrigin, skSx, skTx, skTy } = options
-    const skSy = options.skSy !== '1' ? options.skSy : skType === 'text' ? '0.5' : '1'
+    const { skM = skeletonRect.left > 0 ? 'text' : 'round' } = options
+    const { skR, skO, skSx, skTx, skTy } = options
+    const skSy = options.skSy !== '1' ? options.skSy : skM === 'text' ? '0.5' : '1'
     const { skW = `${skeletonRect.width}px`, skH = `${skeletonRect.height}px` } = options
     const skeleton = configuration.factory()
-    skeleton.dataset.skType = 'none'
+    skeleton.dataset.skM = 'none'
     skeleton.style.position = 'absolute'
     skeleton.style.left = `calc(${skeletonRect.x + elementRect.x - containerRect.x}px + ${skTx})`
     skeleton.style.top = `calc(${skeletonRect.y + elementRect.y - containerRect.y}px + ${skTy})`
@@ -190,14 +190,14 @@ const createSkeleton = (
     skeleton.style.height = skH
     skeleton.style.zIndex = options.skZ!
     skeleton.style.scale = `${skSx} ${skSy}`
-    skeleton.style.transformOrigin = skOrigin!
+    skeleton.style.transformOrigin = skO!
     skeleton.style.zIndex = '1'
-    skeleton.style.borderRadius = radii[skType === 'round' ? skRadius! : skType]
+    skeleton.style.borderRadius = radii[skM === 'round' ? skR! : skM]
     skeleton.style.visibility = 'visible'
     if (debug) {
         skeleton.inert = true
         skeleton.style.opacity = '0.5'
-        skeleton.style.outline = `1px ${skType === 'text' ? 'dashed' : 'solid'} red`
+        skeleton.style.outline = `1px ${skM === 'text' ? 'dashed' : 'solid'} red`
     }
     return skeleton
 }
@@ -224,10 +224,10 @@ const createSkeleton = (
  */
 export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
     const implicitHide = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.skType === 'none')
+        .filter(([, options]) => options?.skM === 'none')
         .map(([tag]) => tag)
     const implicitShow = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.skType && options.skType !== 'none')
+        .filter(([, options]) => options?.skM && options.skM !== 'none')
         .map(([tag]) => tag)
     const selector = buildSelector(implicitHide, implicitShow)
 
@@ -261,7 +261,7 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
                     if (!skeletonRects?.length) return
                     if (!debug && el !== element) el.style.opacity = '0'
                     if (!debug && el === element) el.style.visibility = 'hidden'
-                    if (options.skType === 'hide') return
+                    if (options.skM === 'hide') return
                     const skeletons = (skeletonRects ?? []).map(skeletonRect =>
                         createSkeleton(options, skeletonRect, elementRect, containerRect, !!debug),
                     )
