@@ -213,6 +213,10 @@ const createSkeleton = (
  * - `element.style.opacity`: Set to `0`.
  * - `element.style.visibility`: Set to `hidden`.
  *
+ * Skeleton side effects:
+ * - `overlay.slot`: If required using `dataset` options.
+ * - `overlay.dataset`: Prevent recursive skeleton computation.
+ *
  * A cleanup function is returned to unsubscribe listeners and remove the skeletons.
  *
  * @param element Root element to listen for skeleton candidates.

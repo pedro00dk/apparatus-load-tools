@@ -122,7 +122,7 @@ export const injectOverlay = (element: HTMLElement) => {
     )
 
     const position = getComputedStyle(element).position
-    element.style.position = position === 'static' ? 'relative' : position
+    element.style.position = !position || position === 'static' ? 'relative' : position
     enabledObserver.observe(element, { attributes: true, attributeFilter: ['data-ov'] })
     if (element.dataset.ov === 'true') inject(true)
 
