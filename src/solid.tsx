@@ -3,6 +3,7 @@ import {
     createComputed,
     createContext,
     createMemo,
+    createSignal,
     JSX,
     onCleanup,
     Show,
@@ -23,6 +24,31 @@ declare module 'solid-js' {
             _?: T
         }
     }
+}
+
+/**
+ * Inject an overlay into the parent of this element using {@linkcode injectOverlay}.
+ *
+ * @param props {@linkcode OverlayOptions}.
+ * @param props.when Alternative to {@linkcode OverlayOptions.ov} to mimic {@linkcode Show} (higher priority).
+ */
+export const Overlay = (props: OverlayOptions & { when?: boolean }) => {
+    const [, overlayProps] = splitProps(props, ['when'])
+    const [stub, setStub] = createSignal<HTMLDivElement>()
+    const parent = createMemo(() => stub()?.parentElement)
+    const [cleanup, setCleanup] = createSignal<() => void>()
+
+    createComputed(() => parent() && setCleanup(() => injectOverlay(parent()!)))
+    createComputed(() => {
+        if (!parent()) return
+        const options: OverlayOptions = { ...overlayProps, ov: `${props.when ?? props.ov ?? false}` }
+        Object.assign(parent()!.dataset, options)
+        parent()!.inert = options.ov === 'true'
+    })
+
+    onCleanup(() => cleanup?.())
+
+    return <i ref={setStub} style={{ display: 'none !important' }} />
 }
 
 /**
