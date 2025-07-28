@@ -10,12 +10,10 @@ declare global {
 export type SkeletonOptions = {
     /** Display skeletons. */
     sk?: `${boolean}`
-    /** Skeleton mode. */
-    skM?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
+    /** Skeleton type. */
+    skT?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
     /** Roundness of `round` skeletons. Defaults to `m`. */
     skR?: 'xs' | 's' | 'm' | 'l' | 'xl'
-    /** Match precision of `text` skeletons. Defaults to `last`. (Only for elements containing text nodes) */
-    skT?: 'trim' | 'loose'
     /** Transform origin to scale operations (css property: transform-origin). */
     skO?: string
     /** Scale in the X axis (ratio). */
@@ -37,13 +35,13 @@ export type SkeletonOptions = {
 /**
  * Border radius values for different skeleton decoration modes and radius.
  */
-const radii: { [_ in NonNullable<SkeletonOptions['skM' | 'skR']>]: string } = {
+const radii: { [_ in NonNullable<SkeletonOptions['skT' | 'skR']>]: string } = {
     none: '0px',
     hide: '0px',
-    text: '0.4lh',
     rect: '0px',
     pill: '1000px',
     round: '8px',
+    text: '0.4lh',
     xs: '2px',
     s: '4px',
     m: '8px',
@@ -58,7 +56,7 @@ const configuration = {
     /** Default {@linkcode SkeletonOptions}. */
     defaults: {
         skR: 'm',
-        skT: 'trim',
+        skTT: 'trim',
         skO: 'center',
         skSx: '1',
         skSy: '1',
@@ -67,10 +65,10 @@ const configuration = {
     } as SkeletonOptions,
     /** Default {@linkcode SkeletonOptions} for specific elements. */
     elements: {
-        img: { skM: 'round' },
-        picture: { skM: 'round' },
-        video: { skM: 'round' },
-        svg: { skM: 'round' },
+        img: { skT: 'round' },
+        picture: { skT: 'round' },
+        video: { skT: 'round' },
+        svg: { skT: 'round' },
     } as { [_ in string]?: SkeletonOptions },
     /** Skeleton factory. */
     factory: () => {
@@ -107,10 +105,10 @@ export const setSkeletonConfiguration = (overrides: Partial<typeof configuration
  * @param implicitType Element tags with implicit `data-sk` not `"none"`.
  */
 const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(:is(${[
-    '[data-sk-type="none"]',
-    '[data-sk-type]:not([data-sk-type="none"]) :not([data-sk-type])',
-    ...implicitType.map(tag => `${tag}:not([data-sk-type]) :not([data-sk-type])`),
-    ...implicitNone.map(tag => `${tag}:not([data-sk-type])`),
+    '[data-sk-t="none"]',
+    '[data-sk-t]:not([data-sk-t="none"]) :not([data-sk-t])',
+    ...implicitType.map(tag => `${tag}:not([data-sk-t]) :not([data-sk-t])`),
+    ...implicitNone.map(tag => `${tag}:not([data-sk-t])`),
 ].join(',\n')}
 ))`
 
@@ -118,7 +116,7 @@ const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(
  * Compute skeleton decorations for a given {@linkcode element}.
  *
  * At this point, the computation does not take all {@linkcode options} into consideration, except for
- * {@linkcode SkeletonOptions.skM} and {@linkcode SkeletonOptions.skT}.
+ * {@linkcode SkeletonOptions.skT}.
  *
  * @param element Element to compute skeleton decorations.
  * @param rect {@linkcode element}'s rect.
@@ -126,11 +124,11 @@ const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(
  */
 const computeDecorations = (element: HTMLElement, rect: DOMRect, options: SkeletonOptions) => {
     if (!rect.height || !rect.width) return
-    const { skM: sk, skT } = options
+    const { skT } = options
     const customElement = element.localName.includes('-')
     const probablyText = element.childNodes.length > element.childElementCount
-    if (!sk && !customElement && !probablyText) return
-    if ((sk && sk !== 'text') || (sk === 'text' && !probablyText) || customElement)
+    if (!skT && !customElement && !probablyText) return
+    if ((skT && skT !== 'text') || (skT === 'text' && !probablyText) || customElement)
         return [new DOMRect(0, 0, rect.width, rect.height)]
     return element.childNodes
         .values()
@@ -153,7 +151,7 @@ const computeDecorations = (element: HTMLElement, rect: DOMRect, options: Skelet
                     new DOMRect(
                         0.1 + +(i === 0) * left,
                         top + i * lineHeight,
-                        rect.width - +(i === 0 && skT === 'trim') * left - +(i === lines - 1 && skT === 'trim') * right,
+                        rect.width - +(i === 0) * left - +(i === lines - 1) * right,
                         lineHeight,
                     ),
             )
@@ -177,12 +175,12 @@ const createSkeleton = (
     containerRect: DOMRect,
     debug: boolean,
 ) => {
-    const { skM = skeletonRect.left > 0 ? 'text' : 'round' } = options
+    const { skT: skM = skeletonRect.left > 0 ? 'text' : 'round' } = options
     const { skR, skO, skSx, skTx, skTy } = options
     const skSy = options.skSy !== '1' ? options.skSy : skM === 'text' ? '0.5' : '1'
     const { skW = `${skeletonRect.width}px`, skH = `${skeletonRect.height}px` } = options
     const skeleton = configuration.factory()
-    skeleton.dataset.skM = 'none'
+    skeleton.dataset.skT = 'none'
     skeleton.style.position = 'absolute'
     skeleton.style.left = `calc(${skeletonRect.x + elementRect.x - containerRect.x}px + ${skTx})`
     skeleton.style.top = `calc(${skeletonRect.y + elementRect.y - containerRect.y}px + ${skTy})`
@@ -224,10 +222,10 @@ const createSkeleton = (
  */
 export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
     const implicitHide = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.skM === 'none')
+        .filter(([, options]) => options?.skT === 'none')
         .map(([tag]) => tag)
     const implicitShow = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.skM && options.skM !== 'none')
+        .filter(([, options]) => options?.skT && options.skT !== 'none')
         .map(([tag]) => tag)
     const selector = buildSelector(implicitHide, implicitShow)
 
@@ -261,7 +259,7 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
                     if (!skeletonRects?.length) return
                     if (!debug && el !== element) el.style.opacity = '0'
                     if (!debug && el === element) el.style.visibility = 'hidden'
-                    if (options.skM === 'hide') return
+                    if (options.skT === 'hide') return
                     const skeletons = (skeletonRects ?? []).map(skeletonRect =>
                         createSkeleton(options, skeletonRect, elementRect, containerRect, !!debug),
                     )
