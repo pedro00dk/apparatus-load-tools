@@ -195,7 +195,7 @@ const createSkeleton = (
     skeleton.style.borderRadius = radii[skType === 'round' ? skRadius! : skType]
     skeleton.style.visibility = 'visible'
     if (debug) {
-        skeleton.style.pointerEvents = 'none'
+        skeleton.inert = true
         skeleton.style.opacity = '0.5'
         skeleton.style.outline = `1px ${skType === 'text' ? 'dashed' : 'solid'} red`
     }
@@ -203,21 +203,20 @@ const createSkeleton = (
 }
 
 /**
- * Generate the skeleton and inject it into {@linkcode target}.
+ * Listen for {@linkcode element}'s `[data-sk]` and inject skeletons.
  *
- * The root {@linkcode elements} and nested element that produced skeleton decorations are subscribed to a listener
- * that recreates skeleton decorations if elements' size change.
+ * The overlay is generated using {@linkcode configuration.factory}.
  *
- * Elements that produce skeleton decorations will suffer from side effects required to properly display the skeleton:
- * - `element.inert` is set to `true`.
- * - `element.style.opacity` is set to `0`.
- * - `element.style.anchorName` is set to a non empty string.
+ * Elements side effects:
+ * - `element.children`: Skeletons appended.
+ * - `element.style.position`: Set to `relative`.
+ * - `element.style.opacity`: Set to `0`.
+ * - `element.style.visibility`: Set to `hidden`.
  *
- * A cleanup function is returned to disconnect the observer and remove the skeleton container from {@linkcode target}.
+ * A cleanup function is returned to unsubscribe listeners and remove the skeletons.
  *
- * @param elements Elements that are the root (inclusive) to find all decoration candidates.
- * @param target Target to inject the skeleton container.
- * @param debug Enable decorations and options to help debugging skeletons.
+ * @param element Root element to listen for skeleton candidates.
+ * @param debug Enable debug decorations.
  */
 export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
     const implicitHide = Object.entries(configuration.elements)
@@ -256,7 +255,8 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
                 })
                 .forEach(({ element: el, options, elementRect, skeletonRects }) => {
                     if (!skeletonRects?.length) return
-                    if (!debug) el.style.opacity = '0'
+                    if (!debug && el !== element) el.style.opacity = '0'
+                    if (!debug && el === element) el.style.visibility = 'hidden'
                     if (options.skType === 'hide') return
                     const skeletons = (skeletonRects ?? []).map(skeletonRect =>
                         createSkeleton(options, skeletonRect, elementRect, containerRect, !!debug),
