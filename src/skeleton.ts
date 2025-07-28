@@ -1,4 +1,4 @@
-import { CssLength, mode } from './util'
+import { CssLength } from './util'
 
 declare global {
     interface DOMStringMap extends SkeletonOptions {}
@@ -8,32 +8,36 @@ declare global {
  * Skeleton `dataset` options that can be injected through element data attributes.
  */
 export type SkeletonOptions = {
-    /** Skeleton decoration type. */
-    sk?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
-    /** Roundness of `round` decorations. Defaults to `m`. */
-    skR?: 'xs' | 's' | 'm' | 'l' | 'xl'
-    /** Match precision of `text` decorations. Defaults to `last`. (For elements containing text nodes) */
-    skT?: 'trim' | 'loose'
+    /** Display skeletons. */
+    sk?: `${boolean}`
+    /** Skeleton type. */
+    skType?: 'none' | 'hide' | 'rect' | 'pill' | 'round' | 'text'
+    /** Roundness of `round` skeletons. Defaults to `m`. */
+    skRadius?: 'xs' | 's' | 'm' | 'l' | 'xl'
+    /** Match precision of `text` skeletons. Defaults to `last`. (Only for elements containing text nodes) */
+    skText?: 'trim' | 'loose'
     /** Transform origin to scale operations (css property: transform-origin). */
-    skO?: string
-    /** Scale the decoration in the X axis (ratio). */
+    skOrigin?: string
+    /** Scale in the X axis (ratio). */
     skSx?: `${number}`
-    /** Scale the decoration in the Y axis (ratio). */
+    /** Scale in the Y axis (ratio). */
     skSy?: `${number}`
-    /** Translate the decoration in the X axis (css unit). */
+    /** Translate in the X axis (css unit). */
     skTx?: CssLength
-    /** Translate the decoration in the Y axis (css unit). */
+    /** Translate in the Y axis (css unit). */
     skTy?: CssLength
-    /** Override decoration width (css unit). */
+    /** Override width (css unit). */
     skW?: CssLength
-    /** Override decoration height (css unit). */
+    /** Override height (css unit). */
     skH?: CssLength
+    /** Skeleton z-index. */
+    skZ?: `${number}`
 }
 
 /**
  * Border radius values for different skeleton decoration modes and radius.
  */
-const radii: { [_ in NonNullable<SkeletonOptions['sk' | 'skR']>]: string } = {
+const radii: { [_ in NonNullable<SkeletonOptions['skType' | 'skRadius']>]: string } = {
     none: '0px',
     hide: '0px',
     text: '0.4lh',
@@ -48,32 +52,32 @@ const radii: { [_ in NonNullable<SkeletonOptions['sk' | 'skR']>]: string } = {
 }
 
 /**
- * Module configuration, includes default {@linkcode SkeletonOptions}, and render functions for container and skeletons.
+ * Module configuration, includes default {@linkcode SkeletonOptions}, and a skeleton factory.
  */
 const configuration = {
-    /** Default {@linkcode SkeletonOptions} for all elements. */
-    defaults: { skR: 'm', skT: 'trim', skO: 'center', skSx: '1', skSy: '1', skTx: '0', skTy: '0' } as SkeletonOptions,
+    /** Default {@linkcode SkeletonOptions}. */
+    defaults: {
+        skRadius: 'm',
+        skText: 'trim',
+        skOrigin: 'center',
+        skSx: '1',
+        skSy: '1',
+        skTx: '0px',
+        skTy: '0px',
+    } as SkeletonOptions,
     /** Default {@linkcode SkeletonOptions} for specific elements. */
     elements: {
-        img: { sk: 'round' },
-        picture: { sk: 'round' },
-        video: { sk: 'round' },
-        svg: { sk: 'round' },
+        img: { skType: 'round' },
+        picture: { skType: 'round' },
+        video: { skType: 'round' },
+        svg: { skType: 'round' },
     } as { [_ in string]?: SkeletonOptions },
-    /** Default target element for the skeleton container. */
-    getTarget: () => document.body as HTMLElement | ShadowRoot,
-    /** Render function for the skeleton container element. */
-    createContainer: () => {
-        const container = document.createElement('div') as HTMLElement
-        container.style.zIndex = '1'
-        return container
-    },
-    /** Render function for the skeleton decoration element. */
-    createDecoration: () => {
-        const decoration = document.createElement('div') as HTMLElement
-        decoration.style.background = '#DCE2E5'
-        decoration.animate({ opacity: [1, 0.5, 1] }, { duration: 2000, easing: 'ease-in-out', iterations: Infinity })
-        return decoration
+    /** Skeleton factory. */
+    factory: () => {
+        const skeleton = document.createElement('div') as HTMLElement
+        skeleton.style.background = '#DCE2E5'
+        skeleton.animate({ opacity: [1, 0.5, 1] }, { duration: 2000, easing: 'ease-in-out', iterations: Infinity })
+        return skeleton
     },
 }
 
@@ -103,90 +107,18 @@ export const setSkeletonConfiguration = (overrides: Partial<typeof configuration
  * @param implicitType Element tags with implicit `data-sk` not `"none"`.
  */
 const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(:is(${[
-    '[data-sk="none"]',
-    '[data-sk]:not([data-sk="none"]) :not([data-sk])',
-    ...implicitType.map(tag => `${tag}:not([data-sk]) :not([data-sk])`),
-    ...implicitNone.map(tag => `${tag}:not([data-sk])`),
+    '[data-sk-type="none"]',
+    '[data-sk-type]:not([data-sk-type="none"]) :not([data-sk-type])',
+    ...implicitType.map(tag => `${tag}:not([data-sk-type]) :not([data-sk-type])`),
+    ...implicitNone.map(tag => `${tag}:not([data-sk-type])`),
 ].join(',\n')}
 ))`
-
-/**
- * Generate the skeleton and inject it into {@linkcode target}.
- *
- * The root {@linkcode elements} and nested element that produced skeleton decorations are subscribed to a listener
- * that recreates skeleton decorations if elements' size change.
- *
- * Elements that produce skeleton decorations will suffer from side effects required to properly display the skeleton:
- * - `element.inert` is set to `true`.
- * - `element.style.opacity` is set to `0`.
- * - `element.style.anchorName` is set to a non empty string.
- *
- * A cleanup function is returned to disconnect the observer and remove the skeleton container from {@linkcode target}.
- *
- * @param elements Elements that are the root (inclusive) to find all decoration candidates.
- * @param target Target to inject the skeleton container.
- * @param debug Enable decorations and options to help debugging skeletons.
- */
-export const injectSkeleton = (elements: HTMLElement[], target?: HTMLElement | ShadowRoot, debug?: boolean) => () => {
-    target ??= configuration.getTarget()
-    const container = target.appendChild(configuration.createContainer())
-    container.dataset.about = 'skeleton-container'
-    container.style.position = mode === 'anchor' ? 'static' : 'absolute'
-    container.style.pointerEvents = debug ? 'none' : ''
-
-    const implicitNone = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.sk === 'none')
-        .map(([tag]) => tag)
-    const implicitType = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.sk && options.sk !== 'none')
-        .map(([tag]) => tag)
-    const selector = buildSelector(implicitNone, implicitType)
-
-    const observer = new ResizeObserver(() => {
-        const candidates = [
-            ...elements.filter(element => element.matches(selector)),
-            ...elements.flatMap(element => [...element.querySelectorAll<HTMLElement>(selector)]),
-        ]
-
-        const containerRect = container.getBoundingClientRect()
-        const decorationData = candidates.map((element, i) => {
-            const anchor = `--skeleton-decoration-${i}`
-            const dataset = element.dataset as SkeletonOptions
-            const options = { ...configuration.defaults, ...configuration.elements[element.localName], ...dataset }
-            const elementRect = element.getBoundingClientRect()
-            const decorations = computeDecorations(element, elementRect, options)?.map(decorationRect =>
-                createDecoration(options, anchor, decorationRect, elementRect, containerRect),
-            )
-            return { element, anchor, options, elementRect, decorations }
-        })
-
-        container.replaceChildren()
-        decorationData.forEach(({ element, anchor, options, decorations }) => {
-            if (!decorations?.length) return
-            if (!debug) element.style.opacity = '0'
-            if (options.sk === 'hide') return
-            if (mode === 'anchor') element.style.anchorName = anchor
-            observer.observe(element)
-            container.append(...decorations)
-            if (!debug) return
-            decorations.forEach(decoration => {
-                decoration.textContent = `${element.localName} ${element.id}`
-                decoration.style.outline = `1px ${options.sk === 'text' ? 'dashed' : 'solid'} red`
-            })
-        })
-    })
-
-    elements.forEach(element => (element.inert = !debug))
-    elements.forEach(element => observer.observe(element))
-
-    return () => observer.disconnect()
-}
 
 /**
  * Compute skeleton decorations for a given {@linkcode element}.
  *
  * At this point, the computation does not take all {@linkcode options} into consideration, except for
- * {@linkcode SkeletonOptions.sk} and {@linkcode SkeletonOptions.skT}.
+ * {@linkcode SkeletonOptions.skType} and {@linkcode SkeletonOptions.skText}.
  *
  * @param element Element to compute skeleton decorations.
  * @param rect {@linkcode element}'s rect.
@@ -194,7 +126,7 @@ export const injectSkeleton = (elements: HTMLElement[], target?: HTMLElement | S
  */
 const computeDecorations = (element: HTMLElement, rect: DOMRect, options: SkeletonOptions) => {
     if (!rect.height || !rect.width) return
-    const { sk, skT } = options
+    const { skType: sk, skText: skT } = options
     const customElement = element.localName.includes('-')
     const probablyText = element.childNodes.length > element.childElementCount
     if (!sk && !customElement && !probablyText) return
@@ -230,38 +162,138 @@ const computeDecorations = (element: HTMLElement, rect: DOMRect, options: Skelet
 }
 
 /**
- * Create a skeleton decoration element for the given {@linkcode options}, {@linkcode anchor} name, and rects.
+ * Create a skeleton element using {@linkcode configuration.factory} and add layout properties.
  *
  * @param options Element's resolved {@linkcode SkeletonOptions}.
- * @param anchor Anchor name to be used if {@linkcode mode} is `"anchor"`.
- * @param decorationRect Decoration rect computed by {@linkcode computeDecorations}.
- * @param elementRect Element rect required if {@linkcode mode} is `"float"`.
- * @param containerRect Container rect required if {@linkcode mode} is `"float"`.
+ * @param skeletonRect Skeleton size.
+ * @param elementRect Element position.
+ * @param containerRect Container (root element) position.
+ * @param debug Show debug decorations.
  */
-const createDecoration = (
+const createSkeleton = (
     options: SkeletonOptions,
-    anchor: string,
-    decorationRect: DOMRect,
+    skeletonRect: DOMRect,
     elementRect: DOMRect,
     containerRect: DOMRect,
+    debug: boolean,
 ) => {
-    const { sk = decorationRect.left > 0 ? 'text' : 'round' } = options
-    const { skR, skO, skSx, skTx, skTy } = options
-    const skSy = options.skSy !== '1' ? options.skSy : sk === 'text' ? '0.5' : '1'
-    const { skW = `${decorationRect.width}px`, skH = `${decorationRect.height}px` } = options
-    const float = +(mode === 'float')
-    const decoration = configuration.createDecoration()
-    decoration.style.position = 'absolute'
-    decoration.style.positionAnchor = anchor
-    decoration.style.positionArea = 'center center'
-    decoration.style.alignSelf = 'start'
-    decoration.style.justifySelf = 'start'
-    decoration.style.borderRadius = radii[sk === 'round' ? skR! : sk]
-    decoration.style.width = skW
-    decoration.style.height = skH
-    decoration.style.scale = `${skSx} ${skSy}`
-    decoration.style.transformOrigin = skO!
-    decoration.style.left = `calc(${decorationRect.x + float * (elementRect.x - containerRect.x)}px + ${skTx})`
-    decoration.style.top = `calc(${decorationRect.y + float * (elementRect.y - containerRect.y)}px + ${skTy})`
-    return decoration
+    const { skType = skeletonRect.left > 0 ? 'text' : 'round' } = options
+    const { skRadius, skOrigin, skSx, skTx, skTy } = options
+    const skSy = options.skSy !== '1' ? options.skSy : skType === 'text' ? '0.5' : '1'
+    const { skW = `${skeletonRect.width}px`, skH = `${skeletonRect.height}px` } = options
+    const skeleton = configuration.factory()
+    skeleton.dataset.skType = 'none'
+    skeleton.style.position = 'absolute'
+    skeleton.style.left = `calc(${skeletonRect.x + elementRect.x - containerRect.x}px + ${skTx})`
+    skeleton.style.top = `calc(${skeletonRect.y + elementRect.y - containerRect.y}px + ${skTy})`
+    skeleton.style.width = skW
+    skeleton.style.height = skH
+    skeleton.style.zIndex = options.skZ!
+    skeleton.style.scale = `${skSx} ${skSy}`
+    skeleton.style.transformOrigin = skOrigin!
+    skeleton.style.zIndex = '1'
+    skeleton.style.borderRadius = radii[skType === 'round' ? skRadius! : skType]
+    skeleton.style.visibility = 'visible'
+    if (debug) {
+        skeleton.style.pointerEvents = 'none'
+        skeleton.style.opacity = '0.5'
+        skeleton.style.outline = `1px ${skType === 'text' ? 'dashed' : 'solid'} red`
+    }
+    return skeleton
+}
+
+/**
+ * Generate the skeleton and inject it into {@linkcode target}.
+ *
+ * The root {@linkcode elements} and nested element that produced skeleton decorations are subscribed to a listener
+ * that recreates skeleton decorations if elements' size change.
+ *
+ * Elements that produce skeleton decorations will suffer from side effects required to properly display the skeleton:
+ * - `element.inert` is set to `true`.
+ * - `element.style.opacity` is set to `0`.
+ * - `element.style.anchorName` is set to a non empty string.
+ *
+ * A cleanup function is returned to disconnect the observer and remove the skeleton container from {@linkcode target}.
+ *
+ * @param elements Elements that are the root (inclusive) to find all decoration candidates.
+ * @param target Target to inject the skeleton container.
+ * @param debug Enable decorations and options to help debugging skeletons.
+ */
+export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
+    const implicitHide = Object.entries(configuration.elements)
+        .filter(([, options]) => options?.skType === 'none')
+        .map(([tag]) => tag)
+    const implicitShow = Object.entries(configuration.elements)
+        .filter(([, options]) => options?.skType && options.skType !== 'none')
+        .map(([tag]) => tag)
+    const selector = buildSelector(implicitHide, implicitShow)
+
+    let skeletonElements: HTMLElement[] = []
+    let skeletonObserver: ResizeObserver | undefined
+
+    const inject = () => {
+        const observer = new ResizeObserver(() => {
+            skeletonElements.forEach(skeleton => skeleton.remove())
+            skeletonElements.length = 0
+
+            const candidates = [
+                ...[element].filter(element => element.matches(selector)),
+                ...element.querySelectorAll<HTMLElement>(selector),
+            ]
+
+            const containerRect = element.getBoundingClientRect()
+            candidates
+                .map(element => {
+                    const dataset = element.dataset as SkeletonOptions
+                    const options = {
+                        ...configuration.defaults,
+                        ...configuration.elements[element.localName],
+                        ...dataset,
+                    }
+                    const elementRect = element.getBoundingClientRect()
+                    const skeletonRects = computeDecorations(element, elementRect, options)
+                    return { options, element, elementRect, skeletonRects }
+                })
+                .forEach(({ element: el, options, elementRect, skeletonRects }) => {
+                    if (!skeletonRects?.length) return
+                    if (!debug) el.style.opacity = '0'
+                    if (options.skType === 'hide') return
+                    const skeletons = (skeletonRects ?? []).map(skeletonRect =>
+                        createSkeleton(options, skeletonRect, elementRect, containerRect, !!debug),
+                    )
+                    skeletonElements.push(...skeletons)
+                    element.append(...skeletons)
+                    observer.observe(element)
+                })
+        })
+        observer.observe(element)
+        skeletonObserver = observer
+    }
+
+    const eject = () => {
+        skeletonObserver?.disconnect()
+        skeletonElements.forEach(element => element.remove())
+    }
+
+    const enabledObserver = new MutationObserver(() => {
+        const options = { ...configuration.defaults, ...element.dataset }
+        if (options.sk === 'true') inject()
+        else eject()
+    })
+
+    const removedObserver = new ResizeObserver(
+        ([{ borderBoxSize: size }]) => size[0].blockSize === 0 && size[0].inlineSize === 0 && eject(),
+    )
+
+    const position = getComputedStyle(element).position
+    element.style.position = !position || position === 'static' ? 'relative' : position
+    enabledObserver.observe(element, { attributes: true, attributeFilter: ['data-sk'] })
+    if (element.dataset.sk === 'true') inject()
+
+    return () => {
+        enabledObserver.disconnect()
+        removedObserver.disconnect()
+        skeletonObserver?.disconnect()
+        skeletonElements.forEach(element => element.remove())
+    }
 }
