@@ -265,7 +265,7 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
                     )
                     skeletonElements.push(...skeletons)
                     element.append(...skeletons)
-                    observer.observe(element)
+                    observer.observe(el)
                 })
         })
         observer.observe(element)
