@@ -74,8 +74,8 @@ const createOverlay = (options: OverlayOptions) => {
  * The overlay is generated using {@linkcode configuration.factory}.
  *
  * Elements side effects:
- * - `element.style.position`: Set to `relative`.
  * - `element.children`: Overlay appended.
+ * - `element.style.position`: Set to `relative`.
  *
  * Overlay side effects:
  * - `overlay.slot`: If required using `dataset` options.

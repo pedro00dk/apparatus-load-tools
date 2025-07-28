@@ -55,7 +55,7 @@ export const ShowOverlay = (props: OverlayOptions & { when?: boolean; children?:
 
     onCleanup(() => record.values().forEach(cleanup => cleanup()))
 
-    return <>{elements()}</>
+    return <>{resolved()}</>
 }
 
 /**
@@ -70,8 +70,6 @@ export const sk = () => useContext(SkeletonContext)
 
 /**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectSkeleton}.
- *
- * It works by rendering {@linkcode children} twice, for the {@linkcode Show} `children` and `fallback`.
  *
  * @param props {@linkcode SkeletonOptions}.
  * @param props.when Alternative to {@linkcode SkeletonOptions.sk} to mimic {@linkcode Show} (higher priority).
@@ -94,16 +92,12 @@ export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: 
     createComputed(() => {
         const options: SkeletonOptions = { ...skeletonProps, sk: `${props.when ?? props.sk ?? false}` }
         elements().forEach(element => Object.assign(element.dataset, options))
-        elements().forEach(element => (element.inert = options.sk === 'true'))
+        elements().forEach(element => (element.inert = !props.debug && options.sk === 'true'))
     })
 
     onCleanup(() => record.values().forEach(cleanup => cleanup()))
 
-    return (
-        <Show when={props.when} fallback={elements()}>
-            {props.children}
-        </Show>
-    )
+    return <>{resolved()}</>
 }
 
 /**
@@ -136,7 +130,7 @@ export const SuspenseSkeleton = (props: SkeletonOptions & { debug?: boolean; chi
 
     createComputed(() => {
         elements().forEach(element => Object.assign(element.dataset, skeletonProps, { sk: 'true' } as SkeletonOptions))
-        elements().forEach(element => (element.inert = true))
+        elements().forEach(element => !props.debug && (element.inert = true))
     })
 
     onCleanup(() => record.values().forEach(cleanup => cleanup()))
