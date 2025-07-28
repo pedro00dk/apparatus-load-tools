@@ -11,24 +11,24 @@ declare global {
 export type OverlayOptions = {
     /** Display overlay. */
     ov?: `${boolean}`
-    /** Overlay z-index. */
-    ovZ?: `${number}`
+    /** Set overlay slot for custom elements. */
+    ovSlot?: string
     /** Fade in duration. */
     ovIn?: `${number}`
     /** Fade out duration. */
     ovOut?: `${number}`
-    /** Set overlay slot. */
-    ovSlot?: string
+    /** Overlay z-index. */
+    ovZ?: `${number}`
 }
 
 /**
- * Module configuration, includes default {@linkcode OverlayOptions}, and render functions.
+ * Module configuration, includes default {@linkcode OverlayOptions}, and a overlay factory.
  */
 const configuration = {
-    /** Default {@linkcode OverlayOptions} for all elements. */
+    /** Default {@linkcode OverlayOptions}. */
     defaults: { ovIn: '200', ovOut: '200', ovZ: '1' } satisfies OverlayOptions,
-    /** Render function for the overlay element. */
-    create: () => {
+    /** Overlay factory. */
+    factory: () => {
         const overlay = document.createElement('i')
         overlay.style.position = 'absolute'
         overlay.style.display = 'grid'
@@ -57,9 +57,24 @@ export const setOverlayConfiguration = (overrides: Partial<typeof configuration>
 }
 
 /**
+ * Create a overlay using {@linkcode configuration.factory} and add layout properties.
+ *
+ * @param options Element's resolved {@linkcode OverlayOptions}.
+ */
+const createOverlay = (options: OverlayOptions) => {
+    const overlay = configuration.factory()
+    overlay.slot = options.ovSlot ?? ''
+    overlay.style.position = 'absolute'
+    overlay.style.inset = '0'
+    overlay.style.zIndex = options.ovZ!
+    overlay.slot = options.ovSlot ?? ''
+    return overlay
+}
+
+/**
  * Listen for {@linkcode element}'s `[data-ov]` and inject overlay.
  *
- * The overlay is generated using {@linkcode configuration.create}.
+ * The overlay is generated using {@linkcode configuration.factory}.
  *
  * Elements side effects:
  * - `element.style.position`: Set to `relative`.
@@ -76,16 +91,10 @@ export const setOverlayConfiguration = (overrides: Partial<typeof configuration>
 export const injectOverlay = (element: HTMLElement) => {
     const inject = (animate: boolean) => {
         const options = { ...configuration.defaults, ...element.dataset }
-        const overlay = configuration.create()
-        overlay.slot = options.ovSlot ?? ''
-        overlay.style.position = 'absolute'
-        overlay.style.inset = '0'
-        overlay.style.zIndex = options.ovZ
-        overlay.slot = options.ovSlot ?? ''
-        element.style.position = 'relative'
+        const overlay = createOverlay(options)
         element._overlay = overlay
         element.append(overlay)
-        resizeObserver.observe(element)
+        removedObserver.observe(element)
         const duration = +options.ovIn * +animate
         requestAnimationFrame(() => overlay.animate({ opacity: [0, 1] }, { duration, easing: 'ease-out' }))
     }
@@ -94,7 +103,7 @@ export const injectOverlay = (element: HTMLElement) => {
         const options = { ...configuration.defaults, ...element.dataset }
         const overlay = element._overlay
         element._overlay = undefined
-        resizeObserver.unobserve(element)
+        removedObserver.unobserve(element)
         const duration = +options.ovOut * +animate
         requestAnimationFrame(() =>
             overlay
@@ -103,22 +112,24 @@ export const injectOverlay = (element: HTMLElement) => {
         )
     }
 
-    const mutationObserver = new MutationObserver(() => {
+    const enabledObserver = new MutationObserver(() => {
         const options = { ...configuration.defaults, ...element.dataset }
         if (options.ov === 'true') inject(true)
         else eject(true)
     })
 
-    const resizeObserver = new ResizeObserver(
+    const removedObserver = new ResizeObserver(
         ([{ borderBoxSize: size }]) => size[0].blockSize === 0 && size[0].inlineSize === 0 && eject(false),
     )
 
-    mutationObserver.observe(element, { attributes: true, attributeFilter: ['data-ov'] })
+    const position = getComputedStyle(element).position
+    element.style.position = position === 'static' ? 'relative' : position
+    enabledObserver.observe(element, { attributes: true, attributeFilter: ['data-ov'] })
     if (element.dataset.ov === 'true') inject(true)
 
     return () => {
-        mutationObserver.disconnect()
-        resizeObserver.disconnect()
+        enabledObserver.disconnect()
+        removedObserver.disconnect()
         element._overlay?.remove()
     }
 }
