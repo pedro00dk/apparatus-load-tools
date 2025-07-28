@@ -12,7 +12,7 @@ import {
 } from 'solid-js'
 
 import { injectOverlay, type OverlayOptions } from './overlay.ts'
-import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
+import { type SkeletonOptions } from './skeleton.ts'
 import { OptionsToAttributes } from './util.ts'
 
 declare module 'solid-js' {
@@ -31,8 +31,9 @@ declare module 'solid-js' {
  * The wrapper also make children inert if the overlay is enabled.
  *
  * @param props {@linkcode OverlayOptions} and children, should usually be a single child.
+ * @param props.when Alternative to {@linkcode OverlayOptions.ov} to mimic {@linkcode Show} api.
  */
-export const Overlay = (props: OverlayOptions & { children?: JSX.Element }) => {
+export const ShowOverlay = (props: OverlayOptions & { when?: boolean; children?: JSX.Element }) => {
     const [, overlayProps] = splitProps(props, ['children'])
     const resolved = children(() => props.children)
     const childrenArray = createMemo(() => resolved.toArray())
@@ -48,7 +49,8 @@ export const Overlay = (props: OverlayOptions & { children?: JSX.Element }) => {
 
     createComputed(() => {
         const elements = childrenArray().filter(child => child instanceof HTMLElement)
-        elements.forEach(element => Object.assign(element.dataset, overlayProps))
+        const options: OverlayOptions = { ...overlayProps, ov: props.when != undefined ? `${!!props.ov}` : props.ov }
+        elements.forEach(element => Object.assign(element.dataset, options))
         elements.forEach(element => (element.inert = element.dataset.ov === 'true'))
     })
 
@@ -89,8 +91,8 @@ export const SuspenseSkeleton = (props: {
     const [suspended, setSuspended] = createSignal(true)
     const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
-    const cleanup = createMemo(() => injectSkeleton(elements(), props.target, props.debug)())
-    createComputed(() => !suspended() && cleanup())
+    // const cleanup = createMemo(() => injectSkeleton(elements(), props.target, props.debug)())
+    // createComputed(() => !suspended() && cleanup())
 
     return (
         <Suspense fallback={elements()}>
@@ -120,8 +122,8 @@ export const ShowSkeleton = (props: {
 }) => {
     const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
-    const cleanup = createMemo(() => injectSkeleton(elements(), props.target, props.debug)())
-    createComputed(() => props.when && cleanup())
+    // const cleanup = createMemo(() => injectSkeleton(elements(), props.target, props.debug)())
+    // createComputed(() => props.when && cleanup())
 
     return (
         <Show when={props.when} fallback={elements()}>
