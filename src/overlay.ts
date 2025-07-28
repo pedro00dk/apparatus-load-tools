@@ -1,8 +1,5 @@
 declare global {
     interface DOMStringMap extends OverlayOptions {}
-    interface HTMLElement {
-        _overlay?: HTMLElement
-    }
 }
 
 /**
@@ -89,10 +86,12 @@ const createOverlay = (options: OverlayOptions) => {
  * @param element Root element to listen for overlay candidates.
  */
 export const injectOverlay = (element: HTMLElement) => {
+    let overlayElement!: HTMLElement | undefined
+
     const inject = (animate: boolean) => {
         const options = { ...configuration.defaults, ...element.dataset }
         const overlay = createOverlay(options)
-        element._overlay = overlay
+        overlayElement = overlay
         element.append(overlay)
         removedObserver.observe(element)
         const duration = +options.ovIn * +animate
@@ -101,8 +100,8 @@ export const injectOverlay = (element: HTMLElement) => {
 
     const eject = (animate: boolean) => {
         const options = { ...configuration.defaults, ...element.dataset }
-        const overlay = element._overlay
-        element._overlay = undefined
+        const overlay = overlayElement
+        overlayElement = undefined
         removedObserver.unobserve(element)
         const duration = +options.ovOut * +animate
         requestAnimationFrame(() =>
@@ -130,6 +129,6 @@ export const injectOverlay = (element: HTMLElement) => {
     return () => {
         enabledObserver.disconnect()
         removedObserver.disconnect()
-        element._overlay?.remove()
+        overlayElement?.remove()
     }
 }
