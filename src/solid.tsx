@@ -48,7 +48,7 @@ export const Overlay = (props: OverlayOptions & { when?: boolean }) => {
 
     onCleanup(() => cleanup?.())
 
-    return <i ref={setStub} style={{ display: 'none !important' }} />
+    return <i ref={setStub} style={{ display: 'none' }} />
 }
 
 /**
