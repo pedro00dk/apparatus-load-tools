@@ -5,6 +5,7 @@ export default defineConfig({
     build: {
         lib: { entry: ['./src/index.ts', './src/solid.tsx'], formats: ['es'] },
         rollupOptions: { external: ['solid-js'] },
+        minify: false,
     },
     plugins: [solid()],
 })
