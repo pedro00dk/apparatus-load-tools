@@ -12,7 +12,6 @@ import {
     Suspense,
     useContext,
 } from 'solid-js'
-
 import { injectOverlay, type OverlayOptions } from './overlay.ts'
 import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
 import { OptionsToAttributes } from './util.ts'
