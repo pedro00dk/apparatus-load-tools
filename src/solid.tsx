@@ -140,6 +140,7 @@ export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: 
  */
 export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Element }) => {
     const [, skeletonProps] = splitProps(props, ['children'])
+    const memoChildren = createMemo(() => props.children)
     const [resolvedChildren, setResolvedChildren] = createSignal<ResolvedChildren>()
     const elements = createMemo(() => [resolvedChildren()].flat().filter(element => element instanceof HTMLElement))
 
@@ -172,7 +173,7 @@ export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Elemen
             <>
                 {() => setInFallback(false)}
                 <SkeletonContext.Provider value={inFallback}>
-                    {void setResolvedChildren(children(() => props.children)())}
+                    {void setResolvedChildren(children(memoChildren)())}
                 </SkeletonContext.Provider>
                 {resolvedChildren()}
             </>
