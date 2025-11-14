@@ -62,7 +62,7 @@ const configuration = {
         skSy: '1',
         skTx: '0px',
         skTy: '0px',
-    } as SkeletonOptions,
+    } as Omit<SkeletonOptions, 'sk' | 'skT'>,
     /** Default {@linkcode SkeletonOptions} for specific elements. */
     elements: {
         img: { skT: 'round' },
@@ -91,13 +91,118 @@ export const setSkeletonConfiguration = (overrides: Partial<typeof configuration
 }
 
 /**
+ * Listen for {@linkcode element}'s `[data-sk]` and inject skeletons.
+ *
+ * The overlay is generated using {@linkcode configuration.factory}.
+ *
+ * Elements side effects:
+ * - `element.children`: Skeletons appended.
+ * - `element.style.position`: Set to `relative`.
+ * - `element.style.opacity`: Set to `0`.
+ * - `element.style.visibility`: Set to `hidden`.
+ *
+ * Skeleton side effects:
+ * - `overlay.slot`: If required using `dataset` options.
+ * - `overlay.dataset`: Prevent recursive skeleton computation.
+ *
+ * A cleanup function is returned to unsubscribe listeners and remove the skeletons.
+ *
+ * @param element Root element to listen for skeleton candidates.
+ * @param debug Enable debug decorations.
+ */
+export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
+    const implicitHide = Object.entries(configuration.elements)
+        .filter(([, options]) => options?.skT === 'none')
+        .map(([tag]) => tag)
+    const implicitShow = Object.entries(configuration.elements)
+        .filter(([, options]) => options?.skT && options.skT !== 'none')
+        .map(([tag]) => tag)
+    const selector = buildSelector(implicitHide, implicitShow)
+
+    let skeletonObserver: ResizeObserver | undefined
+    const skeletonElements = new Map<
+        HTMLElement,
+        {
+            opacity: string
+            visibility: string
+            options: SkeletonOptions
+            rect: DOMRect
+            positions: DOMRect[]
+            skeletons: HTMLElement[]
+        }
+    >()
+
+    const inject = () => {
+        const observer = new ResizeObserver(() => {
+            skeletonElements.entries().forEach(([el, { skeletons }]) => {
+                el.style.opacity = skeletonElements.get(el)!.opacity
+                el.style.visibility = skeletonElements.get(el)!.visibility
+                skeletons.forEach(skeleton => skeleton.remove())
+            })
+            skeletonElements.clear()
+
+            const candidates = [
+                ...[element].filter(element => element.matches(selector)),
+                ...element.querySelectorAll<HTMLElement>(selector),
+            ]
+            const { defaults, elements } = configuration
+            const container = element.getBoundingClientRect()
+            candidates.forEach(element => {
+                const opacity = element.style.opacity
+                const visibility = element.style.visibility
+                const options = { ...defaults, ...elements[element.localName], ...element.dataset }
+                const rect = element.getBoundingClientRect()
+                const positions = computePositions(element, options, rect)
+                if (!positions?.length) return
+                skeletonElements.set(element, { opacity, visibility, options, rect, positions, skeletons: [] })
+            })
+            skeletonElements.entries().forEach(([el, { options, rect, positions }]) => {
+                if (!debug && el !== element) el.style.opacity = '0'
+                if (!debug && el === element) el.style.visibility = 'hidden'
+                if (options.skT === 'hide') return
+                const skeletons = positions.map(position => createSkeleton(options, position, rect, container, !!debug))
+                element.append(...(skeletonElements.get(el)!.skeletons = skeletons))
+                observer.observe(el)
+            })
+        })
+        observer.observe(element)
+        skeletonObserver = observer
+    }
+
+    const eject = () => {
+        skeletonObserver?.disconnect()
+        skeletonElements.entries().forEach(([el, { skeletons }]) => {
+            el.style.opacity = skeletonElements.get(el)!.opacity
+            el.style.visibility = skeletonElements.get(el)!.visibility
+            skeletons.forEach(skeleton => skeleton.remove())
+        })
+        skeletonElements.clear()
+    }
+
+    const enabledObserver = new MutationObserver(() => (element.dataset.sk === 'true' ? inject() : eject()))
+    const removedObserver = new ResizeObserver(() => !element.parentElement && eject())
+
+    const position = getComputedStyle(element).position
+    element.style.position = !position || position === 'static' ? 'relative' : position
+    enabledObserver.observe(element, { attributes: true, attributeFilter: ['data-sk'] })
+    removedObserver.observe(element)
+    if (element.dataset.sk === 'true') inject()
+
+    return () => {
+        enabledObserver.disconnect()
+        removedObserver.disconnect()
+        eject()
+    }
+}
+
+/**
  * Generate a css selector that filters out elements that won't participate in the skeleton generation.
  *
  * The following conditions are used:
  * - Element has `data-sk="none"`.
  * - Element is a descendant of `data-sk` ancestor, and itself does not have `data-sk`.
- * - Element is a descendant of {@linkcode implicitType} and it does not have a `data-sk`.
  * - Element in {@linkcode implicitNone} and it does not have a `data-sk`.
+ * - Element is a descendant of {@linkcode implicitType} and it does not have a `data-sk`.
  *
  * The conditions above are inverted using css `:not` and `:is` selectors.
  *
@@ -107,22 +212,19 @@ export const setSkeletonConfiguration = (overrides: Partial<typeof configuration
 const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(:is(${[
     '[data-sk-t="none"]',
     '[data-sk-t]:not([data-sk-t="none"]) :not([data-sk-t])',
-    ...implicitType.map(tag => `${tag}:not([data-sk-t]) :not([data-sk-t])`),
     ...implicitNone.map(tag => `${tag}:not([data-sk-t])`),
+    ...implicitType.map(tag => `${tag}:not([data-sk-t]) :not([data-sk-t])`),
 ].join(',\n')}
 ))`
 
 /**
- * Compute skeleton decorations for a given {@linkcode element}.
- *
- * At this point, the computation does not take all {@linkcode options} into consideration, except for
- * {@linkcode SkeletonOptions.skT}.
+ * Compute skeleton positions for a given {@linkcode element}.
  *
  * @param element Element to compute skeleton decorations.
- * @param rect {@linkcode element}'s rect.
  * @param options {@linkcode element}'s resolved options.
+ * @param rect {@linkcode element}'s rect.
  */
-const computeDecorations = (element: HTMLElement, rect: DOMRect, options: SkeletonOptions) => {
+const computePositions = (element: HTMLElement, options: SkeletonOptions, rect: DOMRect) => {
     if (!rect.height || !rect.width) return
     const { skT } = options
     const customElement = element.localName.includes('-')
@@ -134,6 +236,7 @@ const computeDecorations = (element: HTMLElement, rect: DOMRect, options: Skelet
         .values()
         .filter(node => node.nodeType === Node.TEXT_NODE && node.textContent?.length)
         .flatMap(node => {
+            const lineHeight = parseFloat(getComputedStyle(element).lineHeight)
             const range = document.createRange()
             range.setStart(node, 0)
             range.setEnd(node, 1)
@@ -141,17 +244,17 @@ const computeDecorations = (element: HTMLElement, rect: DOMRect, options: Skelet
             range.setStart(node, node.textContent!.length - 1)
             range.setEnd(node, node.textContent!.length)
             const endRect = range.getBoundingClientRect()
-            const lineHeight = parseFloat(getComputedStyle(element).lineHeight)
             const top = startRect.top - rect.top - (lineHeight - startRect.height) / 2
             const left = startRect.left - rect.left
             const right = rect.right - endRect.right
             const lines = Math.round((endRect.bottom - startRect.top) / lineHeight)
-            return [...Array(lines)].map(
-                (_, i) =>
+            return generate(
+                lines,
+                line =>
                     new DOMRect(
-                        0.1 + +(i === 0) * left,
-                        top + i * lineHeight,
-                        rect.width - +(i === 0) * left - +(i === lines - 1) * right,
+                        left * +(line === 0) + 0.1,
+                        top + line * lineHeight,
+                        rect.width - left * +(line === 0) - right * +(line === lines - 1),
                         lineHeight,
                     ),
             )
@@ -201,101 +304,11 @@ const createSkeleton = (
 }
 
 /**
- * Listen for {@linkcode element}'s `[data-sk]` and inject skeletons.
+ * Return a generator that yields values from `fn` function for `count` iterations.
  *
- * The overlay is generated using {@linkcode configuration.factory}.
- *
- * Elements side effects:
- * - `element.children`: Skeletons appended.
- * - `element.style.position`: Set to `relative`.
- * - `element.style.opacity`: Set to `0`.
- * - `element.style.visibility`: Set to `hidden`.
- *
- * Skeleton side effects:
- * - `overlay.slot`: If required using `dataset` options.
- * - `overlay.dataset`: Prevent recursive skeleton computation.
- *
- * A cleanup function is returned to unsubscribe listeners and remove the skeletons.
- *
- * @param element Root element to listen for skeleton candidates.
- * @param debug Enable debug decorations.
+ * @param count Number of iterations.
+ * @param fn Producer function.
  */
-export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
-    const implicitHide = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.skT === 'none')
-        .map(([tag]) => tag)
-    const implicitShow = Object.entries(configuration.elements)
-        .filter(([, options]) => options?.skT && options.skT !== 'none')
-        .map(([tag]) => tag)
-    const selector = buildSelector(implicitHide, implicitShow)
-
-    let skeletonElements: HTMLElement[] = []
-    let skeletonObserver: ResizeObserver | undefined
-
-    const inject = () => {
-        const observer = new ResizeObserver(() => {
-            skeletonElements.forEach(skeleton => skeleton.remove())
-            skeletonElements.length = 0
-
-            const candidates = [
-                ...[element].filter(element => element.matches(selector)),
-                ...element.querySelectorAll<HTMLElement>(selector),
-            ]
-
-            const containerRect = element.getBoundingClientRect()
-            candidates
-                .map(element => {
-                    const dataset = element.dataset as SkeletonOptions
-                    const options = {
-                        ...configuration.defaults,
-                        ...configuration.elements[element.localName],
-                        ...dataset,
-                    }
-                    const elementRect = element.getBoundingClientRect()
-                    const skeletonRects = computeDecorations(element, elementRect, options)
-                    return { options, element, elementRect, skeletonRects }
-                })
-                .forEach(({ element: el, options, elementRect, skeletonRects }) => {
-                    if (!skeletonRects?.length) return
-                    if (!debug && el !== element) el.style.opacity = '0'
-                    if (!debug && el === element) el.style.visibility = 'hidden'
-                    if (options.skT === 'hide') return
-                    const skeletons = (skeletonRects ?? []).map(skeletonRect =>
-                        createSkeleton(options, skeletonRect, elementRect, containerRect, !!debug),
-                    )
-                    skeletonElements.push(...skeletons)
-                    element.append(...skeletons)
-                    observer.observe(el)
-                })
-        })
-        observer.observe(element)
-        skeletonObserver = observer
-    }
-
-    const eject = () => {
-        skeletonObserver?.disconnect()
-        skeletonElements.forEach(element => element.remove())
-    }
-
-    const enabledObserver = new MutationObserver(() => {
-        const options = { ...configuration.defaults, ...element.dataset }
-        if (options.sk === 'true') inject()
-        else eject()
-    })
-
-    const removedObserver = new ResizeObserver(
-        ([{ borderBoxSize: size }]) => size[0].blockSize === 0 && size[0].inlineSize === 0 && eject(),
-    )
-
-    const position = getComputedStyle(element).position
-    element.style.position = !position || position === 'static' ? 'relative' : position
-    enabledObserver.observe(element, { attributes: true, attributeFilter: ['data-sk'] })
-    if (element.dataset.sk === 'true') inject()
-
-    return () => {
-        enabledObserver.disconnect()
-        removedObserver.disconnect()
-        skeletonObserver?.disconnect()
-        skeletonElements.forEach(element => element.remove())
-    }
+function* generate<T>(count: number, fn: (index: number) => T) {
+    for (let i = 0; i < count; i++) yield fn(i)
 }

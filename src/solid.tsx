@@ -6,6 +6,7 @@ import {
     createSignal,
     JSX,
     onCleanup,
+    ResolvedChildren,
     Show,
     splitProps,
     Suspense,
@@ -87,12 +88,12 @@ export const ShowOverlay = (props: OverlayOptions & { when?: boolean; children?:
 /**
  * Skeleton context to notify components rendering skeletons.
  */
-export const SkeletonContext = createContext(false)
+export const SkeletonContext = createContext((): boolean => false)
 
 /**
  * Shorthand to access {@linkcode SkeletonContext} inside JSX.
  */
-export const sk = () => useContext(SkeletonContext)
+export const sk = () => useContext(SkeletonContext)()
 
 /**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectSkeleton}.
@@ -104,7 +105,7 @@ export const sk = () => useContext(SkeletonContext)
  */
 export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: boolean; children?: JSX.Element }) => {
     const [, skeletonProps] = splitProps(props, ['children'])
-    const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
+    const resolved = children(() => <SkeletonContext.Provider value={() => true} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
     const record = new Map<HTMLElement, () => void>()
 
@@ -129,23 +130,27 @@ export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: 
 /**
  * SolidJS {@linkcode Suspense}-like wrapper for {@linkcode injectSkeleton}.
  *
- * It works by rendering {@linkcode children} twice, for the {@linkcode Suspense} `children` for `fallback`.
- * `fallback` is resolved ahead of time to avoid triggering {@linkcode Suspense} layers above, and for introspection.
+ * Skeletons are injected into each child element.
  *
- * Note that for the skeleton page work properly, the content of the loading page must te stable. Otherwise, the
- * generated skeleton will be changing together with the loading page content. In order to help with page stabilization,
- * {@linkcode SkeletonContext} and {@linkcode sk} utilities are injected only in the `fallback` page to help adding
- * stabilization conditions.
+ * Note that for the skeleton page work properly, the content of the loading page must be stable. Otherwise, the
+ * generated skeleton will change together with the loading page content. In order to help with page stabilization,
+ * {@linkcode SkeletonContext} and {@linkcode sk} utilities are provided.
  *
- * @param props {@linkcode SkeletonOptions}, the {@linkcode SkeletonOptions.sk} is discard for the suspense state.
  * @param props.debug Enable skeleton debug mode.
- * @param children Children to render and generate skeletons for.
+ * @param props.children Children to render and generate skeletons for.
  */
-export const SuspenseSkeleton = (props: SkeletonOptions & { debug?: boolean; children?: JSX.Element }) => {
+export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Element }) => {
     const [, skeletonProps] = splitProps(props, ['children'])
-    const resolved = children(() => <SkeletonContext.Provider value={true} children={props.children} />)
-    const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
+    const [resolvedChildren, setResolvedChildren] = createSignal<ResolvedChildren>()
+    const elements = createMemo(() => [resolvedChildren()].flat().filter(element => element instanceof HTMLElement))
+
+    const [inFallback, setInFallback] = createSignal(false)
     const record = new Map<HTMLElement, () => void>()
+
+    createComputed(() => {
+        elements().forEach(element => Object.assign(element.dataset, skeletonProps, { sk: `${inFallback()}` }))
+        elements().forEach(element => (element.inert = !props.debug && element.dataset.sk === 'true'))
+    })
 
     createComputed(() => {
         const exited = [...record.keys()].filter(element => !elements().includes(element))
@@ -154,12 +159,24 @@ export const SuspenseSkeleton = (props: SkeletonOptions & { debug?: boolean; chi
         entered.forEach(element => record.set(element, injectSkeleton(element, props.debug)))
     })
 
-    createComputed(() => {
-        elements().forEach(element => Object.assign(element.dataset, skeletonProps, { sk: 'true' } as SkeletonOptions))
-        elements().forEach(element => !props.debug && (element.inert = true))
-    })
-
     onCleanup(() => record.values().forEach(cleanup => cleanup()))
 
-    return <Suspense fallback={elements()}>{props.children}</Suspense>
+    return (
+        <Suspense
+            fallback={
+                <>
+                    {() => setInFallback(true)}
+                    {resolvedChildren()}
+                </>
+            }
+        >
+            <>
+                {() => setInFallback(false)}
+                <SkeletonContext.Provider value={inFallback}>
+                    {void setResolvedChildren(children(() => props.children)())}
+                </SkeletonContext.Provider>
+                {resolvedChildren()}
+            </>
+        </Suspense>
+    )
 }
