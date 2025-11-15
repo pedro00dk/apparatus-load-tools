@@ -4,6 +4,7 @@ import {
     createContext,
     createMemo,
     createSignal,
+    createUniqueId,
     JSX,
     onCleanup,
     onMount,
@@ -103,13 +104,16 @@ export const sk = () => useContext(SkeletonContext)()
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectSkeleton}.
  *
  * @param props {@linkcode SkeletonOptions}.
- * @param props.when Alternative to {@linkcode SkeletonOptions.sk} to mimic {@linkcode Show} (higher priority).
+ * @param props.when Enable skeletons.
  * @param props.debug Enable skeleton debug mode.
  * @param children Children to render and generate skeletons for.
  */
-export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: boolean; children?: JSX.Element }) => {
-    const [, skeletonProps] = splitProps(props, ['children'])
-    const resolved = children(() => <SkeletonContext.Provider value={() => true} children={props.children} />)
+export const ShowSkeleton = (props: { when?: boolean; debug?: boolean; children?: JSX.Element }) => {
+    const skId = createUniqueId()
+    const ancestorInFallback = useContext(SkeletonContext)
+    const inFallback = createMemo(() => !!props.when || ancestorInFallback())
+
+    const resolved = children(() => <SkeletonContext.Provider value={inFallback} children={props.children} />)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
     const record = new Map<HTMLElement, () => void>()
 
@@ -121,9 +125,8 @@ export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: 
     })
 
     createComputed(() => {
-        const options: SkeletonOptions = { ...skeletonProps, sk: `${props.when ?? props.sk ?? false}` }
-        elements().forEach(element => Object.assign(element.dataset, options))
-        elements().forEach(element => (element.inert = !props.debug && options.sk === 'true'))
+        elements().forEach(element => Object.assign(element.dataset, { skId, sk: `${inFallback()}` }))
+        elements().forEach(element => (element.inert = !props.debug && element.dataset.sk === 'true'))
     })
 
     onCleanup(() => record.values().forEach(cleanup => cleanup()))
@@ -134,24 +137,29 @@ export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: 
 /**
  * SolidJS {@linkcode Suspense}-like wrapper for {@linkcode injectSkeleton}.
  *
- * Skeletons are injected into each child element.
+ * If there are any pending resources and fallback is rendered, skeletons will be injected into child elements.
+ * If an ancestor skeleton root is already rendering fallback, children skeletons will also be forced into fallback.
  *
  * Note that for the skeleton page work properly, the content of the loading page must be stable. Otherwise, the
  * generated skeleton will change together with the loading page content. In order to help with page stabilization,
- * {@linkcode SkeletonContext} and {@linkcode sk} utilities are provided.
+ * the {@linkcode sk} utility is provided.
  *
  * @param props.debug Enable skeleton debug mode.
  * @param props.children Children to render and generate skeletons for.
  */
 export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Element }) => {
-    const [inFallback, setInFallback] = createSignal(false)
+    const skId = createUniqueId()
+    const ancestorInFallback = useContext(SkeletonContext)
+    const [currentInFallback, setCurrentInFallback] = createSignal(false)
+    const inFallback = createMemo(() => currentInFallback() || ancestorInFallback())
+
     const [resolvedChildren, setResolvedChildren] = createSignal<ResolvedChildren>()
     const elements = createMemo(() => [resolvedChildren()].flat().filter(element => element instanceof HTMLElement))
 
     const record = new Map<HTMLElement, () => void>()
 
     createComputed(() => {
-        elements().forEach(element => Object.assign(element.dataset, { sk: `${inFallback()}` }))
+        elements().forEach(element => Object.assign(element.dataset, { skId, sk: `${inFallback()}` }))
         elements().forEach(element => (element.inert = !props.debug && element.dataset.sk === 'true'))
     })
 
@@ -162,12 +170,12 @@ export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Elemen
         entered.forEach(element => record.set(element, injectSkeleton(element, props.debug)))
     })
 
-    onCleanup(() => record.values().forEach(cleanup => cleanup()))
+    onCleanup(() => elements().forEach(element => (record.get(element)!(), record.delete(element))))
 
     const FallbackDetector = () => {
         let cancel = false
-        onMount(() => ((cancel = false), queueMicrotask(() => !cancel && setInFallback(true))))
-        onCleanup(() => ((cancel = true), setInFallback(false)))
+        onMount(() => ((cancel = false), queueMicrotask(() => !cancel && setCurrentInFallback(true))))
+        onCleanup(() => ((cancel = true), setCurrentInFallback(false)))
         return undefined
     }
 

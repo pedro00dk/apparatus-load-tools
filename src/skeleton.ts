@@ -8,6 +8,8 @@ declare global {
  * Skeleton `dataset` options that can be injected through element data attributes.
  */
 export type SkeletonOptions = {
+    /** Skeleton subtree ID. Subtrees with different IDs are not selected for generation. */
+    skId?: string
     /** Display skeletons. */
     sk?: `${boolean}`
     /** Skeleton type. */
@@ -69,7 +71,7 @@ const configuration = {
         picture: { skT: 'round' },
         video: { skT: 'round' },
         svg: { skT: 'round' },
-    } as { [_ in string]?: SkeletonOptions },
+    } as { [_ in string]?: Omit<SkeletonOptions, 'skId' | 'sk'> },
     /** Skeleton factory. */
     factory: () => {
         const skeleton = document.createElement('div') as HTMLElement
@@ -111,13 +113,15 @@ export const setSkeletonConfiguration = (overrides: Partial<typeof configuration
  * @param debug Enable debug decorations.
  */
 export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
+    const id = element.dataset.skId ?? 'default'
+    const position = getComputedStyle(element).position
     const implicitHide = Object.entries(configuration.elements)
         .filter(([, options]) => options?.skT === 'none')
         .map(([tag]) => tag)
     const implicitShow = Object.entries(configuration.elements)
         .filter(([, options]) => options?.skT && options.skT !== 'none')
         .map(([tag]) => tag)
-    const selector = buildSelector(implicitHide, implicitShow)
+    const selector = buildSelector(id, implicitHide, implicitShow)
 
     let skeletonObserver: ResizeObserver | undefined
     const skeletonElements = new Map<
@@ -133,6 +137,7 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
     >()
 
     const inject = () => {
+        if (!position || position === 'static') element.style.position = 'relative'
         const observer = new ResizeObserver(() => {
             skeletonElements.entries().forEach(([el, { skeletons }]) => {
                 el.style.opacity = skeletonElements.get(el)!.opacity
@@ -170,6 +175,7 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
     }
 
     const eject = () => {
+        element.style.position = position
         skeletonObserver?.disconnect()
         skeletonElements.entries().forEach(([el, { skeletons }]) => {
             el.style.opacity = skeletonElements.get(el)!.opacity
@@ -181,9 +187,6 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
 
     const enabledObserver = new MutationObserver(() => (element.dataset.sk === 'true' ? inject() : eject()))
     const removedObserver = new ResizeObserver(() => !element.parentElement && eject())
-
-    const position = getComputedStyle(element).position
-    element.style.position = !position || position === 'static' ? 'relative' : position
     enabledObserver.observe(element, { attributes: true, attributeFilter: ['data-sk'] })
     removedObserver.observe(element)
     if (element.dataset.sk === 'true') inject()
@@ -199,21 +202,26 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
  * Generate a css selector that filters out elements that won't participate in the skeleton generation.
  *
  * The following conditions are used:
+ * - Element is the root of a different `data-sk-id`.
+ * - Element is a descendent of the root of a different `data-sk-id` (within the query scope).
  * - Element has `data-sk="none"`.
- * - Element is a descendant of `data-sk` ancestor, and itself does not have `data-sk`.
+ * - Element is a descendant of `data-sk!="none"` ancestor, and itself does not have `data-sk`.
  * - Element in {@linkcode implicitNone} and it does not have a `data-sk`.
  * - Element is a descendant of {@linkcode implicitType} and it does not have a `data-sk`.
  *
  * The conditions above are inverted using css `:not` and `:is` selectors.
  *
+ * @param id Skeleton subtree ID.
  * @param implicitNone Element tags with implicit `data-sk="none"`.
  * @param implicitType Element tags with implicit `data-sk` not `"none"`.
  */
-const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(:is(${[
-    '[data-sk-t="none"]',
-    '[data-sk-t]:not([data-sk-t="none"]) :not([data-sk-t])',
-    ...implicitNone.map(tag => `${tag}:not([data-sk-t])`),
-    ...implicitType.map(tag => `${tag}:not([data-sk-t]) :not([data-sk-t])`),
+const buildSelector = (id: string, implicitNone: string[], implicitType: string[]) => `:not(:is(${[
+    `:scope [data-sk-id]:not([data-sk-id="${id}"])`,
+    `:scope [data-sk-id]:not([data-sk-id="${id}"]) *`,
+    ':scope [data-sk-t="none"]',
+    ':scope [data-sk-t]:not([data-sk-t="none"]) :not([data-sk-t])',
+    ...implicitNone.map(tag => `:scope ${tag}:not([data-sk-t])`),
+    ...implicitType.map(tag => `:scope ${tag}:not([data-sk-t]) :not([data-sk-t])`),
 ].join(',\n')}
 ))`
 
