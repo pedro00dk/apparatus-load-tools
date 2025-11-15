@@ -6,6 +6,7 @@ import {
     createSignal,
     JSX,
     onCleanup,
+    onMount,
     ResolvedChildren,
     Show,
     splitProps,
@@ -18,6 +19,10 @@ import { OptionsToAttributes } from './util.ts'
 
 declare module 'solid-js' {
     namespace JSX {
+        interface IntrinsicElements {
+            'sk-overlay': HTMLAttributes<HTMLElement>
+        }
+
         interface HTMLAttributes<T extends EventTarget>
             extends OptionsToAttributes<OverlayOptions>,
                 OptionsToAttributes<SkeletonOptions> {
@@ -48,7 +53,7 @@ export const Overlay = (props: OverlayOptions & { when?: boolean }) => {
 
     onCleanup(() => cleanup?.())
 
-    return <i ref={setStub} style={{ display: 'none' }} />
+    return <sk-overlay ref={setStub} style={{ display: 'none' }} />
 }
 
 /**
@@ -139,16 +144,14 @@ export const ShowSkeleton = (props: SkeletonOptions & { when?: boolean; debug?: 
  * @param props.children Children to render and generate skeletons for.
  */
 export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Element }) => {
-    const [, skeletonProps] = splitProps(props, ['children'])
-    const memoChildren = createMemo(() => props.children)
+    const [inFallback, setInFallback] = createSignal(false)
     const [resolvedChildren, setResolvedChildren] = createSignal<ResolvedChildren>()
     const elements = createMemo(() => [resolvedChildren()].flat().filter(element => element instanceof HTMLElement))
 
-    const [inFallback, setInFallback] = createSignal(false)
     const record = new Map<HTMLElement, () => void>()
 
     createComputed(() => {
-        elements().forEach(element => Object.assign(element.dataset, skeletonProps, { sk: `${inFallback()}` }))
+        elements().forEach(element => Object.assign(element.dataset, { sk: `${inFallback()}` }))
         elements().forEach(element => (element.inert = !props.debug && element.dataset.sk === 'true'))
     })
 
@@ -161,22 +164,18 @@ export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Elemen
 
     onCleanup(() => record.values().forEach(cleanup => cleanup()))
 
+    const FallbackDetector = () => {
+        let cancel = false
+        onMount(() => ((cancel = false), queueMicrotask(() => !cancel && setInFallback(true))))
+        onCleanup(() => ((cancel = true), setInFallback(false)))
+        return <></>
+    }
+
     return (
-        <Suspense
-            fallback={
-                <>
-                    {() => setInFallback(true)}
-                    {resolvedChildren()}
-                </>
-            }
-        >
-            <>
-                {() => setInFallback(false)}
-                <SkeletonContext.Provider value={inFallback}>
-                    {void setResolvedChildren(children(memoChildren)())}
-                </SkeletonContext.Provider>
-                {resolvedChildren()}
-            </>
+        <Suspense fallback={[resolvedChildren(), <FallbackDetector />]}>
+            <SkeletonContext.Provider value={inFallback}>
+                {setResolvedChildren(children(() => props.children))}
+            </SkeletonContext.Provider>
         </Suspense>
     )
 }
