@@ -168,14 +168,21 @@ export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Elemen
         let cancel = false
         onMount(() => ((cancel = false), queueMicrotask(() => !cancel && setInFallback(true))))
         onCleanup(() => ((cancel = true), setInFallback(false)))
-        return <></>
+        return undefined
     }
 
     return (
-        <Suspense fallback={[resolvedChildren(), <FallbackDetector />]}>
-            <SkeletonContext.Provider value={inFallback}>
+        <SkeletonContext.Provider value={inFallback}>
+            <Suspense
+                fallback={
+                    <>
+                        {resolvedChildren()}
+                        <FallbackDetector />
+                    </>
+                }
+            >
                 {setResolvedChildren(children(() => props.children))}
-            </SkeletonContext.Provider>
-        </Suspense>
+            </Suspense>
+        </SkeletonContext.Provider>
     )
 }
