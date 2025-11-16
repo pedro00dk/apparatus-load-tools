@@ -142,7 +142,8 @@ export const ShowSkeleton = (props: { when?: boolean; debug?: boolean; children?
  *
  * Note that for the skeleton page work properly, the content of the loading page must be stable. Otherwise, the
  * generated skeleton will change together with the loading page content. In order to help with page stabilization,
- * the {@linkcode sk} utility is provided.
+ * the {@linkcode sk} utility is provided, however, misuse of this utility for conditionally loading async resources
+ *  can lead to infinite loops.
  *
  * @param props.debug Enable skeleton debug mode.
  * @param props.children Children to render and generate skeletons for.
@@ -172,23 +173,17 @@ export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Elemen
 
     onCleanup(() => elements().forEach(element => (record.get(element)!(), record.delete(element))))
 
+    let swaps = 0
     const FallbackDetector = () => {
-        let cancel = false
-        onMount(() => ((cancel = false), queueMicrotask(() => !cancel && setCurrentInFallback(true))))
-        onCleanup(() => ((cancel = true), setCurrentInFallback(false)))
+        if (++swaps > 100) throw new Error('SuspenseSkeleton: infinite loop')
+        onMount(() => setCurrentInFallback(true))
+        onCleanup(() => setCurrentInFallback(false))
         return undefined
     }
 
     return (
         <SkeletonContext.Provider value={inFallback}>
-            <Suspense
-                fallback={
-                    <>
-                        {resolvedChildren()}
-                        <FallbackDetector />
-                    </>
-                }
-            >
+            <Suspense fallback={[<>{resolvedChildren()}</>, FallbackDetector()]}>
                 {setResolvedChildren(children(() => props.children))}
             </Suspense>
         </SkeletonContext.Provider>
