@@ -137,6 +137,7 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
     >()
 
     const inject = () => {
+        if (skeletonObserver) return
         if (!position || position === 'static') element.style.position = 'relative'
         const observer = new ResizeObserver(() => {
             skeletonElements.entries().forEach(([el, { skeletons }]) => {
@@ -175,8 +176,9 @@ export const injectSkeleton = (element: HTMLElement, debug?: boolean) => {
     }
 
     const eject = () => {
-        element.style.position = position
         skeletonObserver?.disconnect()
+        skeletonObserver = undefined
+        element.style.position = position
         skeletonElements.entries().forEach(([el, { skeletons }]) => {
             el.style.opacity = skeletonElements.get(el)!.opacity
             el.style.visibility = skeletonElements.get(el)!.visibility
