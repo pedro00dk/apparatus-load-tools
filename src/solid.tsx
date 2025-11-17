@@ -96,11 +96,6 @@ export const ShowOverlay = (props: OverlayOptions & { when?: boolean; children?:
 export const SkeletonContext = createContext((): boolean => false)
 
 /**
- * Shorthand to access {@linkcode SkeletonContext} inside JSX.
- */
-export const sk = () => useContext(SkeletonContext)()
-
-/**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectSkeleton}.
  *
  * @param props {@linkcode SkeletonOptions}.
@@ -141,9 +136,7 @@ export const ShowSkeleton = (props: { when?: boolean; debug?: boolean; children?
  * If an ancestor skeleton root is already rendering fallback, children skeletons will also be forced into fallback.
  *
  * Note that for the skeleton page work properly, the content of the loading page must be stable. Otherwise, the
- * generated skeleton will change together with the loading page content. In order to help with page stabilization,
- * the {@linkcode sk} utility is provided, however, misuse of this utility for conditionally loading async resources
- *  can lead to infinite loops.
+ * generated skeleton will change together with the loading page content.
  *
  * @param props.debug Enable skeleton debug mode.
  * @param props.children Children to render and generate skeletons for.
@@ -173,9 +166,7 @@ export const SuspenseSkeleton = (props: { debug?: boolean; children?: JSX.Elemen
 
     onCleanup(() => elements().forEach(element => (record.get(element)!(), record.delete(element))))
 
-    let swaps = 0
     const FallbackDetector = () => {
-        if (++swaps > 100) throw new Error('SuspenseSkeleton: infinite loop')
         onMount(() => setCurrentInFallback(true))
         onCleanup(() => setCurrentInFallback(false))
         return undefined
