@@ -6,14 +6,13 @@ import {
     createRenderEffect,
     createSignal,
     createUniqueId,
-    omit,
     onCleanup,
     onSettled,
     ResolvedChildren,
     Show,
     useContext,
 } from 'solid-js'
-import { injectOverlay, OverlayOptions } from './overlay.ts'
+import { injectOverlay } from './overlay.ts'
 import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
 
 /**
@@ -22,20 +21,19 @@ import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
  * @param props.when Whether to show the overlay.
  * @param props.children Elements to render, if many, each will have its own overlay.
  */
-export const ShowOverlay = (props: OverlayOptions & { when?: boolean; children?: JSX.Element }): JSX.Element => {
-    const ovProps = omit(props, 'when', 'children')
+export const ShowOverlay = (props: { when?: boolean; children?: JSX.Element }): JSX.Element => {
     const resolved = children(() => props.children)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
     const record = new Map<HTMLElement, () => void>()
 
     createRenderEffect(
-        () => [elements(), { ...ovProps }, props.when] as const,
-        ([elements, ovProps, when]) => {
+        () => [elements(), props.when] as const,
+        ([elements, when]) => {
             const entered = elements.filter(element => !record.has(element))
             const exited = [...record.keys()].filter(element => !elements.includes(element))
             entered.forEach(element => record.set(element, injectOverlay(element)))
             exited.forEach(element => (record.get(element)!(), record.delete(element)))
-            elements.forEach(element => Object.assign(element.dataset, ovProps, { ov: `${!!when}` }))
+            elements.forEach(element => (element.dataset.ov = `${!!when}`))
         },
     )
 
@@ -49,29 +47,27 @@ export const ShowOverlay = (props: OverlayOptions & { when?: boolean; children?:
  *
  * @param props.when Whether to show the overlay.
  */
-export const Overlay = (props: OverlayOptions & { when?: boolean }) => {
-    const ovProps = omit(props, 'when')
+export const Overlay = (props: { when?: boolean }) => {
+    const stub = document.createElement('x-overlay-probe')
+    stub.style.display = 'none'
+    onSettled(() => void (stub.parentElement && setElements([stub.parentElement]), stub.remove()))
     const [elements, setElements] = createSignal<HTMLElement[]>([])
     const record = new Map<HTMLElement, () => void>()
 
     createRenderEffect(
-        () => [elements(), { ...ovProps }, props.when] as const,
-        ([elements, ovProps, when]) => {
+        () => [elements(), props.when] as const,
+        ([elements, when]) => {
             const entered = elements.filter(element => !record.has(element))
             const exited = [...record.keys()].filter(element => !elements.includes(element))
             entered.forEach(element => record.set(element, injectOverlay(element)))
             exited.forEach(element => (record.get(element)!(), record.delete(element)))
-            elements.forEach(element => Object.assign(element.dataset, ovProps, { ov: `${!!when}` }))
+            elements.forEach(element => (element.dataset.ov = `${!!when}`))
         },
     )
 
     onSettled(() => () => record.values().forEach(cleanup => cleanup()))
 
-    const stub = document.createElement('x-overlay-probe')
-    stub.style.display = 'none'
-    onSettled(() => void (stub.parentElement && setElements([stub.parentElement]), stub.remove()))
-
-    return stub
+    return [stub]
 }
 
 /**

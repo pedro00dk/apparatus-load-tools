@@ -17,52 +17,53 @@ export type OverlayOptions = {
 }
 
 /**
- * Listen for {@linkcode element}'s `[data-ov]` and inject overlay.
- *
- * The overlay is generated using {@linkcode configuration.factory}.
+ * Inject overlay into {@linkcode element} and listen for its `[data-ov]` attribute.
  *
  * Elements side effects:
  * - `element.style.position`: Set to `relative` if `static`.
  * - `element.inert`: Set to `true` when overlay is enabled.
  * - `element.children`: Overlay appended when enabled.
  *
- * A cleanup function is returned to remove the overlay listener.
+ * A cleanup function is returned to remove the overlay and listener.
  *
  * @param element Root element to listen for overlay candidates.
  * @param template Factory function to create the overlay element. Defaults to {@linkcode createOverlay}.
  */
 export const injectOverlay = (element: HTMLElement, template = createOverlay) => {
-    const overlay = template()
     const position = getComputedStyle(element).position
-    element.style.position = !position || position === 'static' ? 'relative' : position
+    if (!position || position === 'static') element.style.position = 'relative'
+
+    const { ov = 'false', ovZ = '1', ovIn = '200', ovOut = '200' } = element.dataset
+    element.dataset.ov = ov
+
+    const overlay = template()
+    overlay.style.position = 'absolute'
+    overlay.style.opacity = '1'
+    overlay.style.inset = '0'
+    overlay.style.zIndex = ovZ
 
     const inject = () => {
-        const duration = +(element.dataset.ovIn || 200)
         element.inert = true
         element.append(overlay)
-        overlay.style.position = 'absolute'
-        overlay.style.opacity = '1'
-        overlay.style.inset = '0'
-        overlay.style.zIndex = element.dataset.ovZ ?? '1'
         if (!element.isConnected) return
-        overlay.animate({ opacity: [0, 1] }, { duration, easing: 'ease-out', fill: 'forwards' })
+        overlay.animate({ opacity: [0, 1] }, { duration: +ovIn, easing: 'ease-out', fill: 'forwards' })
     }
 
     const eject = () => {
-        const duration = +(element.dataset.ovOut || 200)
         element.inert = false
-        setTimeout(() => element.dataset.ov !== 'true' && overlay.remove(), duration + 50)
+        setTimeout(() => element.dataset.ov !== 'true' && overlay.remove(), +ovOut + 50)
         if (!element.isConnected) return
-        overlay.animate({ opacity: [0] }, { duration, easing: 'ease-in', fill: 'forwards' })
+        overlay.animate({ opacity: [0] }, { duration: +ovOut, easing: 'ease-in', fill: 'forwards' })
     }
 
-    const overlayObserver = new MutationObserver(() => (element.dataset.ov === 'true' ? inject() : eject()))
-    overlayObserver.observe(element, { attributes: true, attributeFilter: ['data-ov'] })
-    if (element.dataset.ov === 'true') inject()
+    const enabledObserver = new MutationObserver(() => (element.dataset.ov === 'true' ? inject() : eject()))
+    enabledObserver.observe(element, { attributes: true, attributeFilter: ['data-ov'] })
+    if (ov === 'true') inject()
 
     return () => {
-        overlayObserver.disconnect()
+        enabledObserver.disconnect()
         overlay.remove()
+        eject()
     }
 }
 
