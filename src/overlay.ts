@@ -8,6 +8,12 @@ declare global {
 export type OverlayOptions = {
     /** Display overlay. */
     ov?: `${boolean}`
+    /** Overlay z-index. */
+    ovZ?: `${number}`
+    /** Overlay fade-in duration (ms). */
+    ovIn?: `${number}`
+    /** Overlay fade-out duration (ms). */
+    ovOut?: `${number}`
 }
 
 /**
@@ -45,28 +51,33 @@ export const createOverlay = () => {
  */
 export const injectOverlay = (element: HTMLElement, createOverlay_ = createOverlay) => {
     const position = getComputedStyle(element).position
+    const ovZ = element.dataset.ovZ ?? '1'
+    const ovIn = +(element.dataset.ovIn || 200)
+    const ovOut = +(element.dataset.ovOut || 200)
     element.style.position = !position || position === 'static' ? 'relative' : position
 
     const overlay = createOverlay_()
     overlay.style.position = 'absolute'
+    overlay.style.zIndex = ovZ
     overlay.style.inset = '0'
-    overlay.style.zIndex = '1'
     overlay.style.opacity = '1'
-
-    const options: KeyframeAnimationOptions = { duration: 200, easing: 'ease-in-out', fill: 'forwards' }
 
     const inject = () => {
         element.inert = true
         element.append(overlay)
         if (!element.isConnected) return
-        requestAnimationFrame(() => overlay.animate({ opacity: [0, 1] }, options))
+        requestAnimationFrame(() =>
+            overlay.animate({ opacity: [0, 1] }, { duration: ovIn, easing: 'ease-out', fill: 'forwards' }),
+        )
     }
 
     const eject = () => {
         element.inert = false
-        setTimeout(() => element.dataset.ov !== 'true' && overlay.remove(), 250)
+        setTimeout(() => element.dataset.ov !== 'true' && overlay.remove(), ovOut)
         if (!element.isConnected) return
-        requestAnimationFrame(() => overlay.animate({ opacity: 0 }, options))
+        requestAnimationFrame(() =>
+            overlay.animate({ opacity: 0 }, { duration: ovOut, easing: 'ease-in', fill: 'forwards' }),
+        )
     }
 
     const overlayObserver = new MutationObserver(() => (element.dataset.ov === 'true' ? inject() : eject()))
