@@ -1,20 +1,14 @@
 {
-    "include": ["src"],
-    "exclude": ["**/*.test.*"],
+    "include": ["src/**/*"],
     "compilerOptions": {
         "allowImportingTsExtensions": true,
-        "erasableSyntaxOnly": true,
-        "module": "esnext",
-        "moduleResolution": "bundler",
         "declaration": true,
-        "declarationDir": "./dist/",
         "emitDeclarationOnly": true,
-        "jsxImportSource": "solid-js",
-        "jsx": "preserve",
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
+        "erasableSyntaxOnly": true,
+        "lib": ["ESNext", "DOM"],
+        "outDir": "./dist/",
+        "rootDir": "./src/",
         "skipLibCheck": true,
-        "strict": true,
-        "target": "esnext"
+        "types": ["*"]
     }
 }

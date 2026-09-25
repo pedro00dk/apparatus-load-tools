@@ -1,8 +1,16 @@
-import { CssLength } from './util'
-
 declare global {
     interface DOMStringMap extends SkeletonOptions {}
 }
+
+type CssAbsoluteUnits = 'px' | 'cm' | 'mm' | 'Q' | 'in' | 'pc' | 'pt'
+type CssFontUnits = 'em' | 'rem' | 'ex' | 'ch' | 'cap' | 'ic' | 'lh' | 'rlh'
+type CssViewportUnits = `${'' | 's' | 'l' | 'd'}v${'i' | 'b' | 'w' | 'h' | 'min' | 'max'}`
+type CssContainerUnits = `cq${'i' | 'b' | 'w' | 'h' | 'min' | 'max'}`
+
+/**
+ * Type for css length strings.
+ */
+export type CssLength = `${number}${CssAbsoluteUnits | CssFontUnits | CssViewportUnits | CssContainerUnits}`
 
 /**
  * Skeleton `dataset` options that can be injected through element data attributes.
