@@ -27,16 +27,21 @@ export type OverlayOptions = {
  * A cleanup function is returned to remove the overlay and listener.
  *
  * @param element Root element to listen for overlay candidates.
- * @param template Factory function to create the overlay element. Defaults to {@linkcode createOverlay}.
+ * @param options Options for the overlay injection.
  */
-export const injectOverlay = (element: HTMLElement, template = createOverlay) => {
+export const injectOverlay = (
+    element: HTMLElement,
+    options: { factory?: () => HTMLElement } = {}, //
+) => {
+    const { factory = createOverlay } = options
+
     const position = getComputedStyle(element).position
     if (!position || position === 'static') element.style.position = 'relative'
 
     const { ov = 'false', ovZ = '1', ovIn = '200', ovOut = '200' } = element.dataset
     element.dataset.ov = ov
 
-    const overlay = template()
+    const overlay = factory()
     overlay.style.position = 'absolute'
     overlay.style.opacity = '1'
     overlay.style.inset = '0'
@@ -71,7 +76,7 @@ export const injectOverlay = (element: HTMLElement, template = createOverlay) =>
  * Create a default overlay element.
  */
 export const createOverlay = () => {
-    const overlay = document.createElement('x-overlay')
+    const overlay = document.createElement('overlay-')
     overlay.style.display = 'grid'
     overlay.style.placeItems = 'center'
     overlay.style.background = '#FFF8'

@@ -1,6 +1,7 @@
 import { JSX } from '@solidjs/web'
 import {
     children,
+    createComponent,
     createContext,
     createMemo,
     createRenderEffect,
@@ -16,6 +17,11 @@ import { injectOverlay } from './overlay.ts'
 import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
 
 /**
+ * Context for overlay injection options.
+ */
+export const OverlayOptions = createContext<Parameters<typeof injectOverlay>[1]>({})
+
+/**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectOverlay}.
  *
  * @param props.when Whether to show the overlay.
@@ -24,14 +30,15 @@ import { injectSkeleton, type SkeletonOptions } from './skeleton.ts'
 export const ShowOverlay = (props: { when?: boolean; children?: JSX.Element }): JSX.Element => {
     const resolved = children(() => props.children)
     const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
+    const overlayOptions = useContext(OverlayOptions)
     const record = new Map<HTMLElement, () => void>()
 
     createRenderEffect(
-        () => [elements(), props.when] as const,
-        ([elements, when]) => {
+        () => [elements(), props.when, overlayOptions] as const,
+        ([elements, when, overlayOptions]) => {
             const entered = elements.filter(element => !record.has(element))
             const exited = [...record.keys()].filter(element => !elements.includes(element))
-            entered.forEach(element => record.set(element, injectOverlay(element)))
+            entered.forEach(element => record.set(element, injectOverlay(element, overlayOptions)))
             exited.forEach(element => (record.get(element)!(), record.delete(element)))
             elements.forEach(element => (element.dataset.ov = `${!!when}`))
         },
@@ -47,19 +54,20 @@ export const ShowOverlay = (props: { when?: boolean; children?: JSX.Element }): 
  *
  * @param props.when Whether to show the overlay.
  */
-export const Overlay = (props: { when?: boolean }) => {
+export const Overlay = (props: { when?: boolean }): JSX.Element => {
     const stub = document.createElement('x-overlay-probe')
     stub.style.display = 'none'
     onSettled(() => void (stub.parentElement && setElements([stub.parentElement]), stub.remove()))
     const [elements, setElements] = createSignal<HTMLElement[]>([])
+    const overlayOptions = useContext(OverlayOptions)
     const record = new Map<HTMLElement, () => void>()
 
     createRenderEffect(
-        () => [elements(), props.when] as const,
-        ([elements, when]) => {
+        () => [elements(), props.when, overlayOptions] as const,
+        ([elements, when, overlayOptions]) => {
             const entered = elements.filter(element => !record.has(element))
             const exited = [...record.keys()].filter(element => !elements.includes(element))
-            entered.forEach(element => record.set(element, injectOverlay(element)))
+            entered.forEach(element => record.set(element, injectOverlay(element, overlayOptions)))
             exited.forEach(element => (record.get(element)!(), record.delete(element)))
             elements.forEach(element => (element.dataset.ov = `${!!when}`))
         },
@@ -83,30 +91,30 @@ export const SkeletonContext = createContext((): boolean => false)
  * @param props.debug Enable skeleton debug mode.
  * @param children Children to render and generate skeletons for.
  */
-export const ShowSkeleton = (props: { when?: boolean; debug?: boolean; children?: JSX.Element }) => {
-    const skId = createUniqueId()
+export const ShowSkeleton = (props: { when?: boolean; debug?: boolean; children?: JSX.Element }): JSX.Element => {
     const ancestorInFallback = useContext(SkeletonContext)
-    const inFallback = createMemo(() => !!props.when || ancestorInFallback())
-
-    // const resolved = children(() => <SkeletonContext.Provider value={inFallback} children={props.children} />)
-    // const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
+    const show = createMemo(() => !!props.when || ancestorInFallback())
+    const resolved = children(() =>
+        // prettier-ignore
+        createComponent(SkeletonContext, { get value() { return show }, get children( ){ return props.children }}),
+    )
+    const elements = createMemo(() => resolved.toArray().filter(element => element instanceof HTMLElement))
     const record = new Map<HTMLElement, () => void>()
 
-    // createComputed(() => {
-    //     const exited = [...record.keys()].filter(element => !elements().includes(element))
-    //     const entered = elements().filter(element => !record.has(element))
-    //     exited.forEach(element => (record.get(element)!(), record.delete(element)))
-    //     entered.forEach(element => record.set(element, injectSkeleton(element, props.debug)))
-    // })
+    createRenderEffect(
+        () => [elements(), props.when, props.debug] as const,
+        ([elements, when, debug]) => {
+            const entered = elements.filter(element => !record.has(element))
+            const exited = [...record.keys()].filter(element => !elements.includes(element))
+            entered.forEach(element => record.set(element, injectSkeleton(element, debug)))
+            exited.forEach(element => (record.get(element)!(), record.delete(element)))
+            elements.forEach(element => (element.dataset.sk = `${!!when}`))
+        },
+    )
 
-    // createComputed(() => {
-    //     elements().forEach(element => Object.assign(element.dataset, { skId, sk: `${inFallback()}` }))
-    //     elements().forEach(element => (element.inert = !props.debug && element.dataset.sk === 'true'))
-    // })
+    onSettled(() => () => record.values().forEach(cleanup => cleanup()))
 
-    onCleanup(() => record.values().forEach(cleanup => cleanup()))
-
-    // return <>{resolved()}</>
+    return [resolved]
 }
 
 /**
