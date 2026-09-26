@@ -12,11 +12,11 @@ npm install @_apparatus_/load-tools
 
 ## Features
 
--   ⏱️ **Loading overlays** - Add spinners and loading indicators that cover content
--   💀 **Runtime skeletons** - Generate skeletons at runtime that match your content layout
--   🎯 **Data attributes** - Control behavior through simple HTML data attributes
--   ⚛️ **Solid.js integration** - Ready-to-use components for reactive applications
--   🔧 **Highly configurable** - Customize appearance, animations, and behavior
+- ⏱️ **Loading overlays** - Add spinners and loading indicators that cover content
+- 💀 **Runtime skeletons** - Generate skeletons at runtime that match your content layout
+- 🎯 **Data attributes** - Control behavior through simple HTML data attributes
+- ⚛️ **Solid.js integration** - Ready-to-use components for reactive applications
+- 🔧 **Highly configurable** - Customize appearance, animations, and behavior
 
 ## Examples
 
@@ -53,26 +53,19 @@ cleanup()
 </script>
 ```
 
-### Overlay Configuration
+### Custom Overlay
 
 ```ts
-import { setOverlayConfiguration, injectOverlay } from '@_apparatus_/load-tools'
+import { injectOverlay } from '@_apparatus_/load-tools'
 
-// Customize default overlay appearance
-setOverlayConfiguration({
-    defaults: {
-        ovIn: '400', // Fade in duration (ms)
-        ovOut: '300', // Fade out duration (ms)
-        ovZ: '100', // Z-index
-    },
+// Pass a custom overlay factory to this injection
+const cleanup = injectOverlay(document.querySelector('#content'), {
     factory: () => {
-        // Custom overlay element
         const overlay = document.createElement('div')
         overlay.style.background = 'rgba(0, 0, 0, 0.5)'
         overlay.style.display = 'grid'
         overlay.style.placeItems = 'center'
 
-        // Add custom spinner
         const spinner = document.createElement('div')
         spinner.className = 'custom-spinner'
         overlay.appendChild(spinner)
@@ -80,8 +73,6 @@ setOverlayConfiguration({
         return overlay
     },
 })
-
-const cleanup = injectOverlay(document.querySelector('#content'))
 ```
 
 ### Basic Skeleton Usage
@@ -150,10 +141,10 @@ cleanup()
 ### Skeleton Configuration
 
 ```ts
-import { setSkeletonConfiguration } from '@_apparatus_/load-tools'
+import { injectSkeleton } from '@_apparatus_/load-tools'
 
-// Customize skeleton defaults and appearance
-setSkeletonConfiguration({
+// Configure defaults and element-specific types for this injection
+const cleanup = injectSkeleton(document.querySelector('#content'), {
     defaults: {
         skR: 'l', // Default roundness: xs, s, m, l, xl
         skO: 'center', // Transform origin
@@ -167,7 +158,6 @@ setSkeletonConfiguration({
         input: { skT: 'pill' },
     },
     factory: () => {
-        // Custom skeleton element
         const skeleton = document.createElement('div')
         skeleton.style.background = 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)'
         skeleton.style.backgroundSize = '200% 100%'
@@ -180,7 +170,7 @@ setSkeletonConfiguration({
 ### Solid.js Integration - Overlay
 
 ```tsx
-import { Overlay, ShowOverlay } from '@_apparatus_/load-tools/solid'
+import { Overlay, OverlayContext, ShowOverlay } from '@_apparatus_/load-tools/solid'
 import { createSignal } from 'solid-js'
 
 const App = () => {
@@ -188,11 +178,12 @@ const App = () => {
 
     return (
         <>
-            {/* Overlay component - injects into parent */}
-            <div>
-                <Overlay when={loading()} ov-in='300' ov-out='200' />
-                <p>Content that will be covered by overlay</p>
-            </div>
+            <OverlayContext value={{ factory: () => document.createElement('div') }}>
+                <div>
+                    <Overlay when={loading()} />
+                    <p>Content that will be covered by overlay</p>
+                </div>
+            </OverlayContext>
 
             {/* ShowOverlay - wraps children with overlay */}
             <ShowOverlay when={loading()}>
@@ -211,36 +202,30 @@ const App = () => {
 ### Solid.js Integration - Skeleton
 
 ```tsx
-import { ShowSkeleton, SkeletonContext, sk } from '@_apparatus_/load-tools/solid'
-import { createSignal, Show } from 'solid-js'
+import { ShowSkeleton, SkeletonContext } from '@_apparatus_/load-tools/solid'
+import { createSignal, For } from 'solid-js'
 
-const UserProfile = () => {
-    // Access skeleton context
-    const isSkeleton = sk()
-
+const UserProfile = (props: { avatar: string; name: string; bio: string }) => {
     return (
         <div class='profile'>
-            <img data-sk-t='round' src={isSkeleton ? '' : user.avatar} />
-            <h2>{isSkeleton ? 'Loading...' : user.name}</h2>
-            <p>{isSkeleton ? 'Loading bio...' : user.bio}</p>
+            <img data-sk-t='round' src={props.avatar} />
+            <h2>{props.name}</h2>
+            <p>{props.bio}</p>
         </div>
     )
 }
 
 const App = () => {
     const [loading, setLoading] = createSignal(true)
-    const [users, setUsers] = createSignal([])
-
-    // Fetch data
-    fetchUsers().then(data => {
-        setUsers(data)
-        setLoading(false)
-    })
+    const [users] = createSignal([{ avatar: 'avatar.jpg', name: 'Ada', bio: 'Engineer' }])
 
     return (
-        <ShowSkeleton when={loading()}>
-            <For each={users()}>{user => <UserProfile user={user} />}</For>
-        </ShowSkeleton>
+        <SkeletonContext value={{ defaults: { skR: 'l' } }}>
+            <ShowSkeleton when={loading()}>
+                <For each={users()}>{user => <UserProfile {...user} />}</For>
+            </ShowSkeleton>
+            <button onClick={() => setLoading(!loading())}>Toggle skeleton</button>
+        </SkeletonContext>
     )
 }
 ```
@@ -279,33 +264,6 @@ const Dashboard = () => {
                 </div>
             </ShowOverlay>
         </div>
-    )
-}
-```
-
-### Real-World Pattern: Suspense with Skeletons
-
-```tsx
-import { Suspense } from 'solid-js'
-import { ShowSkeleton } from '@_apparatus_/load-tools/solid'
-
-const UserList = () => {
-    const [users] = createResource(fetchUsers)
-
-    return (
-        <Suspense
-            fallback={
-                <ShowSkeleton when={true}>
-                    <div class='user-skeleton' data-sk-t='rect'>
-                        <div data-sk-t='round'>Avatar</div>
-                        <div data-sk-t='text'>Name</div>
-                        <div data-sk-t='text'>Email</div>
-                    </div>
-                </ShowSkeleton>
-            }
-        >
-            <For each={users()}>{user => <UserCard user={user} />}</For>
-        </Suspense>
     )
 }
 ```
