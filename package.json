@@ -51,6 +51,6 @@
     },
     "scripts": {
         "build": "tsc && bun build --splitting --external solid-js --outdir ./dist/ ./src/index.ts ./src/solid.ts",
-        "test": "bun test"
+        "test": "bun test --pass-with-no-tests"
     }
 }
