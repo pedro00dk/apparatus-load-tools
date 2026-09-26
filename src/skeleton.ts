@@ -54,21 +54,6 @@ const radii: { [_ in NonNullable<SkeletonOptions['skT' | 'skR']>]: string } = {
 }
 
 /**
- * Module configuration, includes default {@linkcode SkeletonOptions}, and a skeleton factory.
- */
-const configuration = {
-    /** Default {@linkcode SkeletonOptions} for specific elements. */
-
-    /** Skeleton factory. */
-    factory: () => {
-        const skeleton = document.createElement('div') as HTMLElement
-        skeleton.style.background = '#DCE2E5'
-        skeleton.animate({ opacity: [1, 0.5, 1] }, { duration: 2000, easing: 'ease-in-out', iterations: Infinity })
-        return skeleton
-    },
-}
-
-/**
  * Inject skeletons into {@linkcode element}'s and listen for its `[data-sk]` attribute.
  *
  * Elements side effects:
@@ -106,7 +91,14 @@ export const injectSkeleton = (
 
     const skeletons = new Map<
         HTMLElement,
-        { opacity: string; options: SkeletonOptions; rect: DOMRect; positions: DOMRect[]; elements: HTMLElement[] }
+        {
+            visibility: string
+            opacity: string
+            options: SkeletonOptions
+            rect: DOMRect
+            positions: DOMRect[]
+            elements: HTMLElement[]
+        }
     >()
 
     const inject = () => {
@@ -124,41 +116,44 @@ export const injectSkeleton = (
         skeletons.clear()
     }
 
-    const implicitHide = Object.entries(elements)
+    const implicitNone = Object.entries(elements)
         .filter(([, options]) => options?.skT === 'none')
         .map(([tag]) => tag)
     const implicitShow = Object.entries(elements)
         .filter(([, options]) => options?.skT && options.skT !== 'none')
         .map(([tag]) => tag)
-    const selector = buildSelector('default', implicitHide, implicitShow)
+    const selector = buildSelector(implicitNone, implicitShow)
 
     const skeletonObserver = new ResizeObserver(() => {
-        skeletons.entries().forEach(([el, { elements: s }]) => {
-            el.style.opacity = skeletons.get(el)!.opacity
-            s.forEach(skeleton => skeleton.remove())
+        skeletons.entries().forEach(([element, { opacity, elements }]) => {
+            element.style.opacity = opacity
+            elements.forEach(skeleton => skeleton.remove())
         })
         skeletons.clear()
 
+        const container = element.getBoundingClientRect()
         const candidates = [
             ...[element].filter(element => element.matches(selector)),
             ...element.querySelectorAll<HTMLElement>(selector),
         ]
-        const container = element.getBoundingClientRect()
+
         candidates.forEach(element => {
-            const opacity = element.style.opacity
             const visibility = element.style.visibility
+            const opacity = element.style.opacity
             const options = { ...defaults, ...elements[element.localName], ...element.dataset }
             const rect = element.getBoundingClientRect()
             const positions = computePositions(element, options, rect)
             if (!positions?.length) return
-            skeletons.set(element, { opacity, options, rect, positions, elements: [] })
+            skeletons.set(element, { visibility, opacity, options, rect, positions, elements: [] })
         })
         skeletons.entries().forEach(([el, { options, rect, positions }]) => {
-            if (!debug && el !== element) el.style.opacity = '0'
             if (!debug && el === element) el.style.visibility = 'hidden'
+            if (!debug && el !== element) el.style.opacity = '0'
             if (options.skT === 'hide') return
-            const skeletons2 = positions.map(position => createSkeleton___(options, position, rect, container, !!debug))
-            element.append(...(skeletons.get(el)!.elements = skeletons2))
+            const elements = positions.map(position =>
+                computeStyles(factory(), options, rect, container, position, debug),
+            )
+            element.append(...(skeletons.get(el)!.elements = elements))
             skeletonObserver.observe(el)
         })
     })
@@ -174,25 +169,24 @@ export const injectSkeleton = (
 }
 
 /**
- * Generate a css selector that filters out elements that won't participate in the skeleton generation.
+ * Generate a CSS selector to select candidate elements for skeleton generation.
  *
- * The following conditions are used:
- * - Element is the root of a different `data-sk-id`.
- * - Element is a descendent of the root of a different `data-sk-id` (within the query scope).
- * - Element has `data-sk="none"`.
- * - Element is a descendant of `data-sk!="none"` ancestor, and itself does not have `data-sk`.
- * - Element in {@linkcode implicitNone} and it does not have a `data-sk`.
- * - Element is a descendant of {@linkcode implicitType} and it does not have a `data-sk`.
+ * The following conditions are used to exclude elements, all within the :scope subtree:
+ * 1. Root of a different injection (`data-sk` present).
+ * 2. Descendent of a different injection (`data-sk` present).
+ * 3. Element has `data-sk-t="none"`.
+ * 4. Descendant of `data-sk-t!="none"` and does not have `data-sk`.
+ * 5. In {@linkcode implicitNone} and it does not have a `data-sk` (similar to 3).
+ * 6. Descendant of {@linkcode implicitType} and it does not have a `data-sk` (similar to 4).
  *
- * The conditions above are inverted using css `:not` and `:is` selectors.
+ * The conditions above are inverted using css `:not(:is(...))` selectors.
  *
- * @param id Skeleton subtree ID.
  * @param implicitNone Element tags with implicit `data-sk="none"`.
  * @param implicitType Element tags with implicit `data-sk` not `"none"`.
  */
-const buildSelector = (id: string, implicitNone: string[], implicitType: string[]) => `:not(:is(${[
-    `:scope [data-sk-id]:not([data-sk-id="${id}"])`,
-    `:scope [data-sk-id]:not([data-sk-id="${id}"]) *`,
+const buildSelector = (implicitNone: string[], implicitType: string[]) => `:not(:is(${[
+    `:scope [data-sk]`,
+    `:scope [data-sk] *`,
     ':scope [data-sk-t="none"]',
     ':scope [data-sk-t]:not([data-sk-t="none"]) :not([data-sk-t])',
     ...implicitNone.map(tag => `:scope ${tag}:not([data-sk-t])`),
@@ -201,11 +195,11 @@ const buildSelector = (id: string, implicitNone: string[], implicitType: string[
 ))`
 
 /**
- * Compute skeleton positions for a given {@linkcode element}.
+ * Compute skeleton positions for a given element.
  *
  * @param element Element to compute skeleton decorations.
- * @param options {@linkcode element}'s resolved options.
- * @param rect {@linkcode element}'s rect.
+ * @param options Element's resolved options.
+ * @param rect Element's rect.
  */
 const computePositions = (element: HTMLElement, options: SkeletonOptions, rect: DOMRect) => {
     if (!rect.height || !rect.width) return
@@ -219,7 +213,6 @@ const computePositions = (element: HTMLElement, options: SkeletonOptions, rect: 
         .values()
         .filter(node => node.nodeType === Node.TEXT_NODE && node.textContent?.length)
         .flatMap(node => {
-            const lineHeight = parseFloat(getComputedStyle(element).lineHeight)
             const range = document.createRange()
             range.setStart(node, 0)
             range.setEnd(node, 1)
@@ -227,17 +220,18 @@ const computePositions = (element: HTMLElement, options: SkeletonOptions, rect: 
             range.setStart(node, node.textContent!.length - 1)
             range.setEnd(node, node.textContent!.length)
             const endRect = range.getBoundingClientRect()
+            const lineHeight = parseFloat(getComputedStyle(element).lineHeight)
             const top = startRect.top - rect.top - (lineHeight - startRect.height) / 2
             const left = startRect.left - rect.left
             const right = rect.right - endRect.right
             const lines = Math.round((endRect.bottom - startRect.top) / lineHeight)
-            return generate(
-                lines,
-                line =>
+            return Array.from(
+                { length: lines },
+                (_, i) =>
                     new DOMRect(
-                        left * +(line === 0) + 0.1,
-                        top + line * lineHeight,
-                        rect.width - left * +(line === 0) - right * +(line === lines - 1),
+                        left * +(i === 0) + 0.1,
+                        top + i * lineHeight,
+                        rect.width - left * +(i === 0) - right * +(i === lines - 1),
                         lineHeight,
                     ),
             )
@@ -246,54 +240,44 @@ const computePositions = (element: HTMLElement, options: SkeletonOptions, rect: 
 }
 
 /**
- * Create a skeleton element using {@linkcode configuration.factory} and add layout properties.
+ * From a skeleton element and its computed positions, compute the necessary styles.
  *
- * @param options Element's resolved {@linkcode SkeletonOptions}.
- * @param skeletonRect Skeleton size.
- * @param elementRect Element position.
+ * @param skeleton Skeleton element.
+ * @param options Element's resolved options.
+ * @param rect Element position.
  * @param containerRect Container (root element) position.
+ * @param skeletonRect Skeleton size.
  * @param debug Show debug decorations.
  */
-const createSkeleton___ = (
+const computeStyles = (
+    skeleton: HTMLElement,
     options: SkeletonOptions,
-    skeletonRect: DOMRect,
-    elementRect: DOMRect,
+    rect: DOMRect,
     containerRect: DOMRect,
+    skeletonRect: DOMRect,
     debug: boolean,
 ) => {
     const { skT: skM = skeletonRect.left > 0 ? 'text' : 'round' } = options
     const { skR, skO, skSx, skTx, skTy } = options
     const skSy = options.skSy !== '1' ? options.skSy : skM === 'text' ? '0.5' : '1'
     const { skW = `${skeletonRect.width}px`, skH = `${skeletonRect.height}px` } = options
-    const skeleton = configuration.factory()
     skeleton.dataset.skT = 'none'
     skeleton.style.position = 'absolute'
-    skeleton.style.left = `calc(${skeletonRect.x + elementRect.x - containerRect.x}px + ${skTx})`
-    skeleton.style.top = `calc(${skeletonRect.y + elementRect.y - containerRect.y}px + ${skTy})`
+    skeleton.style.left = `calc(${skeletonRect.x + rect.x - containerRect.x}px + ${skTx})`
+    skeleton.style.top = `calc(${skeletonRect.y + rect.y - containerRect.y}px + ${skTy})`
     skeleton.style.width = skW
     skeleton.style.height = skH
     skeleton.style.zIndex = options.skZ!
     skeleton.style.scale = `${skSx} ${skSy}`
     skeleton.style.transformOrigin = skO!
-    skeleton.style.zIndex = '1'
     skeleton.style.borderRadius = radii[skM === 'round' ? skR! : skM]
     skeleton.style.visibility = 'visible'
     if (debug) {
         skeleton.inert = true
         skeleton.style.opacity = '0.5'
-        skeleton.style.outline = `1px ${skM === 'text' ? 'dashed' : 'solid'} red`
+        skeleton.style.outline = `1px ${skM === 'text' ? 'double' : 'solid'} red`
     }
     return skeleton
-}
-
-/**
- * Return a generator that yields values from `fn` function for `count` iterations.
- *
- * @param count Number of iterations.
- * @param fn Producer function.
- */
-function* generate<T>(count: number, fn: (index: number) => T) {
-    for (let i = 0; i < count; i++) yield fn(i)
 }
 
 /**
