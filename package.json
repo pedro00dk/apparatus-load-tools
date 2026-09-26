@@ -50,7 +50,7 @@
         }
     },
     "scripts": {
-        "build": "tsc && bun build --outdir ./dist/ ./src/index.ts && bun build --external solid-js --outdir ./dist/ ./src/solid.ts",
+        "build": "tsc && bun build --splitting --external solid-js --outdir ./dist/ ./src/index.ts ./src/solid.ts",
         "test": "bun test"
     }
 }

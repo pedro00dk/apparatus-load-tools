@@ -85,7 +85,7 @@ export const Overlay = (props: { when?: boolean }): JSX.Element => {
 /**
  * Skeleton context to notify components rendering skeletons.
  */
-const SkeletonFallback = createContext((): boolean => false)
+export const SkeletonFallback = createContext((): boolean => false)
 
 /**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectSkeleton}.
