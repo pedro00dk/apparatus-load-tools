@@ -76,12 +76,8 @@ export const injectSkeleton = (
         debug?: boolean
     } = {},
 ) => {
-    const {
-        factory = createSkeleton,
-        defaults = { skR: 'm', skO: 'center', skSx: '1', skSy: '1', skTx: '0px', skTy: '0px', skZ: '1' },
-        elements = { img: { skT: 'round' }, video: { skT: 'round' }, svg: { skT: 'round' } },
-        debug = false,
-    } = options
+    const { factory = createSkeleton, defaults = {}, elements: el = {}, debug = false } = options
+    const elements: typeof el = { img: { skT: 'round' }, video: { skT: 'round' }, svg: { skT: 'round' }, ...el }
 
     const position = getComputedStyle(element).position
     if (!position || position === 'static') element.style.position = 'relative'
@@ -258,8 +254,8 @@ const computeStyles = (
     debug: boolean,
 ) => {
     const { skT: skM = skeletonRect.left > 0 ? 'text' : 'round' } = options
-    const { skR, skO, skSx, skTx, skTy } = options
-    const skSy = options.skSy !== '1' ? options.skSy : skM === 'text' ? '0.5' : '1'
+    const { skR = 'm', skO = 'center', skSx = '1', skSy: skSy_ = '1', skTx = '0px', skTy = '0px', skZ = '1' } = options
+    const skSy = skSy_ !== '1' ? skSy_ : skM === 'text' ? '0.5' : '1'
     const { skW = `${skeletonRect.width}px`, skH = `${skeletonRect.height}px` } = options
     skeleton.dataset.skT = 'none'
     skeleton.style.position = 'absolute'
@@ -267,9 +263,9 @@ const computeStyles = (
     skeleton.style.top = `calc(${skeletonRect.y + rect.y - containerRect.y}px + ${skTy})`
     skeleton.style.width = skW
     skeleton.style.height = skH
-    skeleton.style.zIndex = options.skZ!
+    skeleton.style.zIndex = skZ
     skeleton.style.scale = `${skSx} ${skSy}`
-    skeleton.style.transformOrigin = skO!
+    skeleton.style.transformOrigin = skO
     skeleton.style.borderRadius = radii[skM === 'round' ? skR! : skM]
     skeleton.style.visibility = 'visible'
     if (debug) {
