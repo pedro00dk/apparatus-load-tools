@@ -105,7 +105,8 @@ export const injectSkeleton = (
     const eject = () => {
         element.inert = false
         skeletonObserver.disconnect()
-        skeletons.entries().forEach(([element, { opacity, elements }]) => {
+        skeletons.entries().forEach(([element, { visibility, opacity, elements }]) => {
+            element.style.visibility = visibility
             element.style.opacity = opacity
             elements.forEach(skeleton => skeleton.remove())
         })
@@ -121,7 +122,8 @@ export const injectSkeleton = (
     const selector = buildSelector(implicitNone, implicitShow)
 
     const skeletonObserver = new ResizeObserver(() => {
-        skeletons.entries().forEach(([element, { opacity, elements }]) => {
+        skeletons.entries().forEach(([element, { visibility, opacity, elements }]) => {
+            element.style.visibility = visibility
             element.style.opacity = opacity
             elements.forEach(skeleton => skeleton.remove())
         })
