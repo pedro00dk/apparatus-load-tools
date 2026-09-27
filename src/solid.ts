@@ -26,6 +26,16 @@ export const OverlayContext = createContext<Parameters<typeof injectOverlay>[1]>
 export const SkeletonContext = createContext<Parameters<typeof injectSkeleton>[1]>({})
 
 /**
+ * Skeleton context to notify components rendering skeletons.
+ */
+export const SkeletonFallback = createContext((): boolean => false)
+
+/**
+ * Inline hook to access the skeleton fallback state. Short for `useContext(SkeletonFallback)()`.
+ */
+export const sk = () => useContext(SkeletonFallback)()
+
+/**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectOverlay}.
  *
  * @param props.when Whether to show the overlay.
@@ -82,10 +92,6 @@ export const Overlay = (props: { when?: boolean }): JSX.Element => {
     return [probe]
 }
 
-/**
- * Skeleton context to notify components rendering skeletons.
- */
-export const SkeletonFallback = createContext((): boolean => false)
 
 /**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectSkeleton}.
@@ -133,7 +139,7 @@ export const ShowSkeleton = (props: { when?: boolean; debug?: boolean; children?
  */
 export const LoadingSkeleton = (props: { debug?: boolean; children?: JSX.Element }) => {
     const ancestorInFallback = useContext(SkeletonFallback)
-    const [currentInFallback, setCurrentInFallback] = createSignal(false)
+    const [currentInFallback, setCurrentInFallback] = createSignal(true)
     const when = createMemo(() => currentInFallback() || ancestorInFallback())
     const [resolved, setResolved] = createSignal<ResolvedElement[]>([], { ownedWrite: true })
     const elements = createMemo(() => resolved().filter(element => element instanceof HTMLElement))
