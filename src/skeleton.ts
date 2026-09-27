@@ -205,32 +205,17 @@ const computePositions = (element: HTMLElement, options: SkeletonOptions, rect: 
     if (!skT && !customElement && !probablyText) return
     if ((skT && skT !== 'text') || (skT === 'text' && !probablyText) || customElement)
         return [new DOMRect(0, 0, rect.width, rect.height)]
+    const range = document.createRange()
     return element.childNodes
         .values()
         .filter(node => node.nodeType === Node.TEXT_NODE && node.textContent?.length)
         .flatMap(node => {
-            const range = document.createRange()
             range.setStart(node, 0)
-            range.setEnd(node, 1)
-            const startRect = range.getBoundingClientRect()
-            range.setStart(node, node.textContent!.length - 1)
             range.setEnd(node, node.textContent!.length)
-            const endRect = range.getBoundingClientRect()
-            const lineHeight = parseFloat(getComputedStyle(element).lineHeight)
-            const top = startRect.top - rect.top - (lineHeight - startRect.height) / 2
-            const left = startRect.left - rect.left
-            const right = rect.right - endRect.right
-            const lines = Math.round((endRect.bottom - startRect.top) / lineHeight)
-            return Array.from(
-                { length: lines },
-                (_, i) =>
-                    new DOMRect(
-                        left * +(i === 0) + 0.1,
-                        top + i * lineHeight,
-                        rect.width - left * +(i === 0) - right * +(i === lines - 1),
-                        lineHeight,
-                    ),
-            )
+            const positions: DOMRect[] = []
+            for (const { left, top, width, height } of range.getClientRects())
+                if (width > 5) positions.push(new DOMRect(0.1 + left - rect.left, top - rect.top, width, height))
+            return positions
         })
         .toArray()
 }
