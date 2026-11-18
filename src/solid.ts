@@ -92,7 +92,6 @@ export const Overlay = (props: { when?: boolean }): JSX.Element => {
     return [probe]
 }
 
-
 /**
  * SolidJS {@linkcode Show}-like wrapper for {@linkcode injectSkeleton}.
  *

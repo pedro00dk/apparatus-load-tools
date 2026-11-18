@@ -1,17 +1,7 @@
 {
     "name": "@_apparatus_/load-tools",
-    "description": "Easily create loading skeletons and overlays that adapt to content at runtime.",
     "version": "4.0.3",
-    "type": "module",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/pedro00dk/apparatus-load-tools"
-    },
-    "author": {
-        "name": "Pedro Henrique",
-        "email": "pedro00dk@gmail.com"
-    },
+    "description": "Easily create loading skeletons and overlays that adapt to content at runtime.",
     "keywords": [
         "loading",
         "overlay",
@@ -20,6 +10,16 @@
         "solid-js",
         "util"
     ],
+    "license": "MIT",
+    "author": {
+        "name": "Pedro Henrique",
+        "email": "pedro00dk@gmail.com"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/pedro00dk/apparatus-load-tools"
+    },
+    "type": "module",
     "types": "dist/index.d.ts",
     "exports": {
         ".": {
@@ -31,15 +31,19 @@
             "types": "./dist/solid.d.ts"
         }
     },
+    "scripts": {
+        "build": "tsc && bun build --splitting --external solid-js --outdir ./dist/ ./src/index.ts ./src/solid.ts",
+        "test": "bun test --pass-with-no-tests"
+    },
     "devDependencies": {
-        "@solidjs/web": "^2.0.0-rc.9",
-        "@types/bun": "1.4.2",
-        "typescript": "7.0.2",
-        "solid-js": "^2.0.0-rc.9"
+        "@solidjs/web": "2.0.0",
+        "@types/bun": "1.4.4",
+        "solid-js": "2.0.0",
+        "typescript": "7.0.2"
     },
     "peerDependencies": {
-        "@solidjs/web": "^2.0.0-rc.9",
-        "solid-js": "^2.0.0-rc.9"
+        "@solidjs/web": "^2.0.0",
+        "solid-js": "^2.0.0"
     },
     "peerDependenciesMeta": {
         "@solidjs/web": {
@@ -49,8 +53,5 @@
             "optional": true
         }
     },
-    "scripts": {
-        "build": "tsc && bun build --splitting --external solid-js --outdir ./dist/ ./src/index.ts ./src/solid.ts",
-        "test": "bun test --pass-with-no-tests"
-    }
+    "packageManager": "bun@1.4.4"
 }
